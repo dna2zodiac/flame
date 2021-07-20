@@ -1,4 +1,5 @@
 import {Env} from '../logic/global';
+import {BreadCrumb} from './breadcrumb';
 
 class AppIconButton {
    ui = {
@@ -117,12 +118,21 @@ class AppSideNav {
 
 class AppMainView {
    ui = {
-      self: document.createElement('div')
+      self: document.createElement('div'),
+      nav: new BreadCrumb(),
+      view: document.createElement('div')
    };
 
    constructor () {
       this.ui.self.className = 'flex-auto flex-w0';
-      this.ui.self.innerHTML = 'MainView works!';
+      const div = document.createElement('div');
+      div.className = 'flex-frame flex-column';
+      this.ui.view.className = 'flex-auto flex-h0';
+      div.appendChild(this.ui.nav.GetDom());
+      this.ui.nav.Render('/test0/test1/test2/README.md'); /* debug */
+      this.ui.view.innerHTML = 'It works!';
+      div.appendChild(this.ui.view);
+      this.ui.self.appendChild(div);
       // TODO: main view render
    }
 
@@ -147,7 +157,7 @@ export class AppFrame {
    ui = {
       self: document.createElement('div'),
       head: document.createElement('header'),
-      body: document.createElement('body'),
+      body: document.createElement('div'),
       foot: document.createElement('footer'),
       view: new AppMainView(),
       nav: {

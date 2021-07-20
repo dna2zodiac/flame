@@ -1,5 +1,5 @@
 import {SetTheme} from './style/style';
-import {AppFrame} from './layout/app';
+import {AppFrame} from './component/app';
 
 class FlameApp {
    constructor() {
