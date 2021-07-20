@@ -66,13 +66,6 @@ class AppIconNav {
 
    constructor () {
       this.ui.self.className = 'app-icon-nav';
-      const that = this;
-      this.ui.btn.forEach((btn: AppIconButton) => {
-         this.ui.self.appendChild(btn.GetDom());
-         btn.OnClick((evt: any) => {
-            that.Touch(btn.Name());
-         });
-      });
    }
 
    GetDom() { return this.ui.self; }
@@ -83,13 +76,18 @@ class AppIconNav {
    }
 
    Touch (name: string) {
+      this.tab = null;
       this.ui.btn.forEach((btn: AppIconButton) => {
          if (btn.Name() === name && !btn.IsActive()) {
             btn.Active();
+            this.tab = btn.Name();
          } else {
             btn.Inactive();
          }
       });
+   }
+   Tab(): string {
+      return this.tab;
    }
 }
 
@@ -106,6 +104,15 @@ class AppSideNav {
 
    GetDom() { return this.ui.self; }
    Dispose() {}
+
+   Show() {
+      // TODO: if screen too small,
+      //       get out of parent div and become position=fixed
+      this.ui.self.style.display = 'block';
+   }
+   Hide() {
+      this.ui.self.style.display = 'none';
+   }
 }
 
 class AppMainView {
@@ -121,6 +128,19 @@ class AppMainView {
 
    GetDom() { return this.ui.self; }
    Dispose() {}
+}
+
+class BodyConnector {
+   constructor() {}
+
+   Bind(nav: AppIconNav, side: AppSideNav, view: AppMainView) {
+      nav.ui.btn.forEach((btn: AppIconButton) => {
+         nav.ui.self.appendChild(btn.GetDom());
+         btn.OnClick((evt: any) => {
+            nav.Touch(btn.Name());
+         });
+      });
+   }
 }
 
 export class AppFrame {
@@ -143,6 +163,12 @@ export class AppFrame {
       this.ui.self.appendChild(this.buildBody());
       this.ui.self.appendChild(this.buildFoot());
       document.body.appendChild(this.ui.self);
+
+      new BodyConnector().Bind(
+         this.ui.nav.icon,
+         this.ui.nav.side,
+         this.ui.view
+      );
    }
 
    GetDom() { return this.ui.self; }
