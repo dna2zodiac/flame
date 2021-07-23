@@ -221,4 +221,51 @@ a.item:hover {
 .app-icon-nav {
    border-right: 1px solid #ccc;
 }
+
+.editor-container {
+   width: 100%;
+   height: 100%;
+   overflow: auto;
+}
+.editor-side-flex {
+   display: flex;
+   flex-direction: row;
+}
+.editor-left-side {
+   margin-right: 2px;
+   padding-right: 2px;
+   border-right: 1px solid #999;
+   text-align: right;
+   float: left;
+   position: sticky;
+   left: 0px;
+   background-color: white;
+}
+.editor-linenumber > a {
+   cursor: pointer;
+   display: inline-block;
+   width: 100%;
+}
+.editor-linenumber > a.active {
+   border-right: 3px solid blue;
+   padding-right: 1px;
+   background-color: #ccf;
+}
+.editor-text {
+   border: none;
+   padding: 0px;
+   margin: 0px;
+   tab-size: 4;
+}
+
+.editor-highlight {
+   position: relative;
+   width: 0px;
+   height: 0px;
+   z-index: -10;
+}
+
+.editor-highlight > div {
+   position: absolute;
+}
 `.split(/\s+/).join(' ');
