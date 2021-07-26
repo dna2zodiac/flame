@@ -92,12 +92,13 @@ export const DataClient = {
             ]
          }, null);
       }, // GetMetadata
-      Search: (query: string, n: number) => {
+      Search: (query: string, n: number = 50) => {
          return FakeAjax(null, {
             matchRegexp: '[Tt]his is',
             items: [
                { path: '/test1/README.md', matches: [
-                  { L: 1, T: 'This is a test readme file.' }
+                  { L: 1, T: 'This is a test readme file.' },
+                  { L: 5, T: 'This is a test readme file and it is a loooooooooooooooooong line here.' }
                ] },
                { path: '/test2/README.md', matches: [
                   { L: 1, T: 'This is a test readme file.' }

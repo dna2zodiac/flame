@@ -258,6 +258,10 @@ a.item:hover {
    margin: 0px;
    tab-size: 4;
 }
+.editor-font {
+   font-family: monospace;
+   font-size: 14px;
+}
 
 .editor-highlight {
    position: relative;
@@ -282,5 +286,9 @@ a.item:hover {
 }
 .folder-fold-btn.active {
    transform: rotate(180deg);
+}
+
+.search-item a {
+   text-decoration: none;
 }
 `.split(/\s+/).join(' ');

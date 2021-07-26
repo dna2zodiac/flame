@@ -14,6 +14,17 @@ export function ElemAppendHtml(elem: HTMLElement, html: string) {
    return elem;
 }
 
+export function ElemDivMessage(elem: HTMLElement, message: string, color: string = null, icon: string = null) {
+   const div = document.createElement('div');
+   if (icon) {
+      div.appendChild(ElemIcon(icon, 14, 14));
+   }
+   ElemAppendText(div, message);
+   ElemEmpty(elem);
+   div.className = 'item item-' + (color || 'blue');
+   elem.appendChild(div);
+}
+
 export function ElemFlash(elem: HTMLElement, count: number = 5) {
    let sw = true;
    _flash();

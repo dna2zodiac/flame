@@ -322,8 +322,17 @@ class BodyConnector {
    }
 
    onSearch(query: string): Promise<any> {
-      // TODO: search
-      return Promise.resolve(true);
+      const that =this;
+      const stab = this.components.side.ui.tab.Search;
+      const req = stab.Search(query);
+      req.then(() => {
+         if (that.components.side.Tab() !== 'Search') {
+            that.components.nav.Touch('Search');
+            that.components.side.Touch('Search');
+         }
+         ElemFlash(that.components.side.ui.tab.Search.GetDom());
+      }, () => {});
+      return req;
    }
 
    parseHash(): any {
