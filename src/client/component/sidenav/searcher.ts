@@ -1,4 +1,4 @@
-import {ElemEmpty, ElemAppendText, ElemDivMessage} from '../../logic/util';
+import {ElemEmpty, ElemAppendText, ElemDivMessage, ElemIcon} from '../../logic/util';
 import {DataClient} from '../../logic/api';
 
 export interface SearchResultMatch {
@@ -69,6 +69,10 @@ export class SearchItem {
 export class SideNavSearcherTab {
    ui = {
       self: document.createElement('div'),
+      box: {
+         query: document.createElement('input'),
+         search: document.createElement('button')
+      },
       result: document.createElement('div')
    };
 
@@ -86,6 +90,16 @@ export class SideNavSearcherTab {
       div.className = 'item-thin item-yellow';
       ElemAppendText(div, 'Search');
       this.ui.self.appendChild(div);
+
+      const box = document.createElement('div');
+      box.className = 'item-thin item-yellow flex-table flex-row';
+      this.ui.box.query.className = 'item-input flex-auto';
+      this.ui.box.search.appendChild(ElemIcon('img/search.svg', 12, 12));
+      this.ui.box.search.style.marginRight = '2px';
+      box.appendChild(this.ui.box.query);
+      box.appendChild(this.ui.box.search);
+      this.ui.self.appendChild(box);
+
       this.ui.self.appendChild(this.ui.result);
    }
 

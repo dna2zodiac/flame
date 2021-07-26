@@ -93,20 +93,23 @@ export const DataClient = {
          }, null);
       }, // GetMetadata
       Search: (query: string, n: number = 50) => {
+         const items: any = [];
+         items.push({
+            path: '/test1/README.md',
+            matches: [
+               { L: 1, T: 'This is a test readme file.' },
+               { L: 5, T: 'This is a test readme file and it is a loooooooooooooooooong line here.' }
+            ]
+         });
+         for (let i = 2; i < 30; i++) {
+            items.push({
+               path: `/test${i}/README.md`,
+               matches: [ { L: 1, T: 'This is a test readme file.' } ]
+            });
+         }
          return FakeAjax(null, {
             matchRegexp: '[Tt]his is',
-            items: [
-               { path: '/test1/README.md', matches: [
-                  { L: 1, T: 'This is a test readme file.' },
-                  { L: 5, T: 'This is a test readme file and it is a loooooooooooooooooong line here.' }
-               ] },
-               { path: '/test2/README.md', matches: [
-                  { L: 1, T: 'This is a test readme file.' }
-               ] },
-               { path: '/test3/README.md', matches: [
-                  { L: 1, T: 'This is a test readme file.' }
-               ] }
-            ]
+            items: items
          }, null);
       }, // Search
    }, // Project

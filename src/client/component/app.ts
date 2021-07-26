@@ -207,7 +207,25 @@ class BodyConnector {
       this.components.view.ui.nav.GetDom().addEventListener(
          'click', onClickBreadcrumb, false
       );
+      const stab = this.components.side.ui.tab.Search;
+      stab.ui.box.query.addEventListener('keypress', onPressEnterForSearch);
+      stab.ui.box.search.addEventListener('click', onClickSearch);
       onHashChange();
+
+      function onPressEnterForSearch(evt: any) {
+         if (evt.key !== 'Enter') return;
+         onClickSearch();
+      }
+
+      function onClickSearch() {
+         const stab = that.components.side.ui.tab.Search;
+         const query = stab.ui.box.query.value;
+         if (!query) {
+            stab.ui.box.query.focus();
+            return;
+         }
+         window.location.hash = '#?' + encodeURIComponent(query);
+      }
 
       function onClickBreadcrumb(evt: any) {
          if (evt.target.tagName.toLowerCase() === 'a') {
@@ -236,6 +254,9 @@ class BodyConnector {
                   }
                }
             } else if (obj.path.startsWith('?')) {
+               // TODO: use #Q=... instead of #?... ?
+               //       so that we can show file content meanwhile show query results
+               //       e.g. #/path/to/file#Q=test
                const query = decodeURIComponent(obj.path.substring(1));
                that.onSearch(query);
             }
@@ -324,13 +345,14 @@ class BodyConnector {
    onSearch(query: string): Promise<any> {
       const that =this;
       const stab = this.components.side.ui.tab.Search;
+      stab.ui.box.query.value = query;
       const req = stab.Search(query);
       req.then(() => {
          if (that.components.side.Tab() !== 'Search') {
             that.components.nav.Touch('Search');
             that.components.side.Touch('Search');
          }
-         ElemFlash(that.components.side.ui.tab.Search.GetDom());
+         ElemFlash(that.components.side.ui.tab.Search.ui.result);
       }, () => {});
       return req;
    }
