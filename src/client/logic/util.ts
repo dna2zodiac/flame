@@ -31,6 +31,14 @@ export function ElemFlash(elem: HTMLElement, count: number = 5) {
    }
 }
 
+export function ElemIcon(src: string, w: number, h: number) {
+   const img = document.createElement('img');
+   img.src = src;
+   img.style.width = `${w}px`;
+   img.style.height = `${h}px`;
+   return img;
+}
+
 export function PageLoading(zIndex: number = 0) {
    let div = <HTMLElement>document.querySelector('.mask');
    if (!div) {
