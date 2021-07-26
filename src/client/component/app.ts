@@ -36,7 +36,7 @@ class AppIconButton {
          if (this.events.onClick) this.OnClick(null);
          this.events.onClick = fn;
          this.ui.btn.addEventListener(
-            'click', this.events.onClick
+            'click', this.events.onClick, false
          );
       } else if (this.events.onClick) {
          this.ui.btn.removeEventListener(
@@ -203,9 +203,9 @@ class BodyConnector {
       });
 
       const that = this;
-      window.addEventListener('hashchange', onHashChange);
+      window.addEventListener('hashchange', onHashChange, false);
       this.components.view.ui.nav.GetDom().addEventListener(
-         'click', onClickBreadcrumb
+         'click', onClickBreadcrumb, false
       );
       onHashChange();
 

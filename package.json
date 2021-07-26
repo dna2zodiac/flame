@@ -3,11 +3,13 @@
   "description": "Source Code Comprehension Toolkits (SCCT)",
   "main": "index.ts",
   "devDependencies": {
+    "javascript-obfuscator": "^2.18.1",
     "ts-loader": "^9.2.3",
     "typescript": "^4.3.5",
     "uglifyjs-webpack-plugin": "^2.2.0",
     "webpack": "^5.45.1",
-    "webpack-cli": "^4.7.2"
+    "webpack-cli": "^4.7.2",
+    "webpack-obfuscator": "^3.4.0"
   },
   "scripts": {
     "test": "echo 'No Test'"

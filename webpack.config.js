@@ -1,5 +1,6 @@
 const i_path = require('path');
 const i_uglifyjs_webpack_plugin = require('uglifyjs-webpack-plugin');
+const i_javascript_obfuscator_plugin = require('webpack-obfuscator');
 
 module.exports = [{
    // target: 'node',
@@ -35,6 +36,13 @@ module.exports = [{
             },
             compress: true
          }
+      }),
+      new i_javascript_obfuscator_plugin({
+         compact: true,
+         transformObjectKeys: true,
+         stringArray: true,
+         stringArrayEncoding: ['base64'],
+         rotateUnicodeArray: true
       })
    ]
 }, {
