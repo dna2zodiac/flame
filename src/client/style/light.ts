@@ -67,6 +67,7 @@ body {
    display: block;
    padding-left: 2px;
    margin-left: 6px;
+   white-space: nowrap;
 }
 .item-btn {
    display: inline-block;

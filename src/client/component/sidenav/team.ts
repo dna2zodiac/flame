@@ -14,6 +14,7 @@ export class SideNavTeamTab {
 
    Render() {
       ElemEmpty(this.ui.self);
+      this.ui.self.className = 'full scrollable-y';
       const div = document.createElement('div');
       div.className = 'item-thin item-yellow';
       ElemAppendText(div, 'Team');

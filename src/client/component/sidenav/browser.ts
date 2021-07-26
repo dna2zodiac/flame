@@ -19,6 +19,7 @@ export class SideNavBrowserTab {
 
    Render() {
       ElemEmpty(this.ui.self);
+      this.ui.self.className = 'full scrollable';
       const div = document.createElement('div');
       div.className = 'item-thin item-yellow';
       ElemAppendText(div, 'Browse');

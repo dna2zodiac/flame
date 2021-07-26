@@ -114,9 +114,8 @@ class AppSideNav {
    tab: string = null;
 
    constructor () {
-      this.ui.self.className = 'full-h scrollable-y';
+      this.ui.self.className = 'full-h scrollable-no';
       this.ui.self.style.width = '300px';
-      // TODO: side nav render
       Object.keys(this.ui.tab).forEach((name: string) => {
          const tab = (<any>this.ui.tab)[name];
          this.ui.self.appendChild(tab.GetDom());
