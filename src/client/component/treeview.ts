@@ -127,7 +127,7 @@ class FolderNode {
    }
 }
 
-class FolderTree {
+export class FolderTree {
    self: HTMLElement;
    opt: any;
    root: FolderNode;

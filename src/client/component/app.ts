@@ -1,10 +1,13 @@
 import {Env} from '../logic/global';
 import {BreadCrumb} from './breadcrumb';
+import {ElemEmpty, ElemFlash} from '../logic/util';
+import {DataClient} from '../logic/api';
 import {SideNavSearcherTab} from './sidenav/searcher';
 import {SideNavBrowserTab} from './sidenav/browser';
 import {SideNavAnalyzerTab} from './sidenav/analyzer';
 import {SideNavTeamTab} from './sidenav/team';
 import {SideNavSettingsTab} from './sidenav/settings';
+import {SourceCodeViewer} from './editor';
 
 class AppIconButton {
    ui = {
@@ -180,9 +183,17 @@ class AppMainView {
 }
 
 class BodyConnector {
+   lastHash: any = {};
+   editor: any = null;
+   components: any = {};
+
    constructor() {}
 
    Bind(nav: AppIconNav, side: AppSideNav, view: AppMainView) {
+      this.components.nav = nav;
+      this.components.side = side;
+      this.components.view = view;
+
       nav.ui.btn.forEach((btn: AppIconButton) => {
          nav.ui.self.appendChild(btn.GetDom());
          btn.OnClick((evt: any) => {
@@ -191,6 +202,158 @@ class BodyConnector {
             side.Touch(name);
          });
       });
+
+      const that = this;
+      window.addEventListener('hashchange', onHashChange);
+      this.components.view.ui.nav.GetDom().addEventListener(
+         'click', onClickBreadcrumb
+      );
+      onHashChange();
+
+      function onClickBreadcrumb(evt: any) {
+         if (evt.target.tagName.toLowerCase() === 'a') {
+            evt.preventDefault();
+            const path = evt.target.getAttribute('data-path');
+            if (!path) return;
+            that.browserTabExpandTo(path);
+         }
+      }
+
+      function onHashChange() {
+         const obj = that.parseHash();
+         if (obj.path) {
+            if (obj.path.startsWith('/')) {
+               if (obj.path === that.lastHash.path) {
+                  that.editorGotoLine(obj.L);
+               } else {
+                  that.browserTabExpandTo(obj.path);
+                  if (that.editor) that.editor.Dispose();
+                  ElemEmpty(view.ui.view);
+                  that.breadcrumbSetTo(obj.path);
+                  if (!obj.path.endsWith('/')) {
+                     that.onView(obj.path).then(() => {
+                        that.editorGotoLine(obj.L);
+                     });
+                  }
+               }
+            } else if (obj.path.startsWith('?')) {
+               const query = decodeURIComponent(obj.path.substring(1));
+               that.onSearch(query);
+            }
+         }
+         that.lastHash = obj;
+      }
+   }
+
+   editorGotoLine(lineMark: string) {
+      if (!this.editor) return;
+      if (!this.editor.ScrollToLine) return;
+      if (!this.editor.LineHighlight) return;
+      const parts = (lineMark || '0').split('-');
+      const st = parseInt(parts[0], 10);
+      const ed = parts[1]?parseInt(parts[1], 10):0;
+      this.editor.ScrollToLine(st, ed);
+      this.editor.LineHighlight(st, ed);
+   }
+
+   browserTabExpandTo(path: string) {
+      const that = this;
+      const btab = this.components.side.ui.tab.Browse;
+      btab.ui.tree.opt.switchToBrowseTab = btab.ui.tree.opt.switchToBrowseTab || (() => {
+         if (that.components.side.Tab() !== 'Browse') {
+            that.components.nav.Touch('Browse');
+            that.components.side.Touch('Browse');
+         }
+      });
+      btab.ui.tree.opt.highlightItem = btab.ui.tree.opt.highlightItem || ((elem: any) => {
+         that.browserTabScrollTo(elem);
+         ElemFlash(elem);
+      });
+      btab.ui.tree.AsyncExpandTo(path);
+   }
+
+   browserTabScrollTo(elem: any) {
+      if (this.components.side.Tab() !== 'Browse') return;
+      const side = this.components.side.ui.self;
+      const top = elem.offsetTop - side.offsetTop;
+      const top0 = side.scrollTop;
+      const h = elem.offsetHeight;
+      const h0 = side.offsetHeight;
+      const x = side.scrollLeft;
+      if (top0 > top) {
+         side.scrollTo(x, top);
+      } else if (top0 + h0 - h < top) {
+         let y = top - h0 + h;
+         if (y < 0) y = 0;
+         side.scrollTo(x, y);
+      }
+   }
+
+   breadcrumbSetTo(path: string) {
+      this.components.view.ui.nav.Render(path);
+   }
+
+   onView(path: string, opt: any = null): Promise<any> {
+      if (!opt) opt = {};
+      if (this.editor) this.editor.Dispose();
+      ElemEmpty(this.components.view.ui.view);
+      const req = DataClient.Project.GetFileContents(path).Req();
+      const that = this;
+      req.then((obj: any) => {
+         if (obj.binary) {
+            // TODO: render not support file view
+         } else {
+            that.editor = new SourceCodeViewer({
+               onClickLineNumber: (linenumber: number) => {
+                  const hash = that.parseHash();
+                  const lnstr = '' + linenumber;
+                  if (hash.L === lnstr) {
+                     window.location.hash = that.buildHash({ L: null });
+                  } else {
+                     window.location.hash = that.buildHash({ L: lnstr });
+                  }
+               }
+            });
+            that.components.view.ui.view.appendChild(that.editor.GetDom());
+            that.editor.Render(obj.data);
+         }
+      }, (err: any) => {
+      });
+      return req;
+   }
+
+   onSearch(query: string): Promise<any> {
+      // TODO: search
+      return Promise.resolve(true);
+   }
+
+   parseHash(): any {
+      const parts = window.location.hash.split('#');
+      parts.shift();
+      const obj: any = {};
+      obj.path = parts[0];
+      parts.forEach((part: string) => {
+         const kv = part.split('=');
+         obj[decodeURIComponent(kv[0] || '.')] = (
+            decodeURIComponent(kv[1] || '')
+         );
+      });
+      return obj;
+   }
+
+   buildHash(changes: any): string {
+      const obj = Object.assign(this.parseHash(), changes);
+      const path = obj.path;
+      delete obj.path;
+      let hash = '#' + path;
+      Object.keys(obj).forEach((key: string) => {
+         if (!obj[key]) return;
+         hash += (
+            '#' + encodeURIComponent(key) + '=' +
+            encodeURIComponent(obj[key])
+         );
+      });
+      return hash;
    }
 }
 

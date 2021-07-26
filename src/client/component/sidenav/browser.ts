@@ -1,11 +1,15 @@
 import {ElemEmpty, ElemAppendText} from '../../logic/util';
+import {FolderTree} from '../treeview';
 
 export class SideNavBrowserTab {
    ui = {
-      self: document.createElement('div')
+      self: document.createElement('div'),
+      tree: <any>null
    };
 
    constructor() {
+      this.ui.tree = <any>(new FolderTree(this.ui.self, {}));
+      this.ui.tree.root.AsyncUnfold();
       this.Render();
    }
 

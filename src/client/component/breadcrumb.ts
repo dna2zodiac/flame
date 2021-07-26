@@ -23,7 +23,7 @@ export class BreadCrumb {
       const last_ = parts.pop();
       const last = last_ || parts.pop();
       if (!last) return;
-      ElemAppendText(this.ui.self, ' # /');
+      ElemAppendText(this.ui.self, ' # / ');
       let curpath = '/';
       parts.forEach((name) => {
          curpath += name + '/';

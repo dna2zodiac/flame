@@ -268,4 +268,18 @@ a.item:hover {
 .editor-highlight > div {
    position: absolute;
 }
+
+.folder-fold-btn {
+    background: url('img/angle.svg');
+    width: 12px;
+    height: 12px;
+    text-decoration: none;
+    display: inline-block;
+    margin: 1px;
+    padding: 1px;
+    cursor: pointer;
+}
+.folder-fold-btn.active {
+   transform: rotate(180deg);
+}
 `.split(/\s+/).join(' ');

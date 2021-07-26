@@ -1,6 +1,6 @@
 import {ElemEmpty, ElemAppendText} from '../logic/util';
 
-class SourCodeViewer {
+export class SourceCodeViewer {
    opt: any = {};
    lines: string[] = [];
    ui = {
@@ -31,9 +31,13 @@ class SourCodeViewer {
       this.ui.lineNumber.removeEventListener(
          'click', this.events.onClickLineNumber
       );
+      if (this.ui.self.parentNode) {
+         this.ui.self.parentNode.removeChild(this.ui.self);
+      }
    }
 
-   render() {
+   Render(text: string) {
+      this.lines = text.split('\n');
       this.ui.self.className = 'full';
       this.ui.container.className = 'editor-container';
       ElemEmpty(this.ui.lineNumber);
@@ -76,7 +80,7 @@ class SourCodeViewer {
       sideFlex.style.fontSize = textStyle.fontSize;
       const that = this;
       this.events.onClickLineNumber = (evt: any) => {
-         if (evt.taret.tagName.toLowerCase() !== 'a') return;
+         if (evt.target.tagName.toLowerCase() !== 'a') return;
          const linenumber = parseInt(evt.target.textContent, 10);
          if (linenumber <= 0) return;
          if (linenumber > that.lines.length) return;
@@ -147,12 +151,12 @@ class SourCodeViewer {
       const r: number[] = [-1, -1];
       const n = this.lines.length;
       if (!start || start === end) return r;
+      if (!end) end = start + 1;
       if (start > end) {
          start += end;
          end = start - end;
          start = start - end;
       }
-      if (!end) end = start + 1;
       if (start < 0 || end < 0) return r;
       if (start > n) return r;
       if (end > n + 1) return r;
@@ -165,9 +169,10 @@ class SourCodeViewer {
       const sted = this.checkStartEndLineNumber(
          startLineNumber, endLineNumber
       );
+      const div = this.ui.extra.highlight.line;
+      div.style.display = 'none';
       if (sted[0] < 0) return;
       const hL = (<HTMLElement>this.ui.lineNumber.children[0]).offsetHeight;
-      const div = this.ui.extra.highlight.line;
       div.style.width = this.cache.maxLineWidth + 'px';
       const top = (sted[0] - 1) * hL, bottom = (sted[1] - 1) * hL;
       div.style.height = (bottom - top) + 'px';
