@@ -1,5 +1,10 @@
 import {Env} from '../logic/global';
 import {BreadCrumb} from './breadcrumb';
+import {SideNavSearcherTab} from './sidenav/searcher';
+import {SideNavBrowserTab} from './sidenav/browser';
+import {SideNavAnalyzerTab} from './sidenav/analyzer';
+import {SideNavTeamTab} from './sidenav/team';
+import {SideNavSettingsTab} from './sidenav/settings';
 
 class AppIconButton {
    ui = {
@@ -94,13 +99,26 @@ class AppIconNav {
 
 class AppSideNav {
    ui = {
-      self: document.createElement('div')
+      self: document.createElement('div'),
+      tab: {
+         Search: new SideNavSearcherTab(),
+         Browse: new SideNavBrowserTab(),
+         Analysis: new SideNavAnalyzerTab(),
+         Team: new SideNavTeamTab(),
+         Settings: new SideNavSettingsTab()
+      }
    };
+   tab: string = null;
 
    constructor () {
+      this.ui.self.className = 'full-h scrollable-y';
       this.ui.self.style.width = '300px';
       // TODO: side nav render
-      this.ui.self.innerHTML = 'SideNav works!';
+      Object.keys(this.ui.tab).forEach((name: string) => {
+         const tab = (<any>this.ui.tab)[name];
+         this.ui.self.appendChild(tab.GetDom());
+      });
+      this.Hide();
    }
 
    GetDom() { return this.ui.self; }
@@ -113,6 +131,27 @@ class AppSideNav {
    }
    Hide() {
       this.ui.self.style.display = 'none';
+   }
+
+   Touch (name: string) {
+      const cur = this.tab;
+      this.tab = null;
+      Object.keys(this.ui.tab).forEach((name0: string) => {
+         const tab = (<any>this.ui.tab)[name0];
+         tab.Hide();
+         if (cur !== name && name0 === name) {
+            tab.Show();
+            this.tab = name;
+         }
+      });
+      if (this.tab) {
+         this.Show();
+      } else {
+         this.Hide();
+      }
+   }
+   Tab(): string {
+      return this.tab;
    }
 }
 
@@ -147,7 +186,9 @@ class BodyConnector {
       nav.ui.btn.forEach((btn: AppIconButton) => {
          nav.ui.self.appendChild(btn.GetDom());
          btn.OnClick((evt: any) => {
-            nav.Touch(btn.Name());
+            const name = btn.Name();
+            nav.Touch(name);
+            side.Touch(name);
          });
       });
    }
