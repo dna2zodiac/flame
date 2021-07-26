@@ -171,8 +171,8 @@ class AppMainView {
       div.className = 'flex-frame flex-column';
       this.ui.view.className = 'flex-auto flex-h0';
       div.appendChild(this.ui.nav.GetDom());
-      this.ui.nav.Render('/test0/test1/test2/README.md'); /* debug */
-      this.ui.view.innerHTML = 'It works!';
+      this.ui.nav.Render('/');
+      this.ui.view.innerHTML = '';
       div.appendChild(this.ui.view);
       this.ui.self.appendChild(div);
       // TODO: main view render
@@ -259,17 +259,17 @@ class BodyConnector {
    browserTabExpandTo(path: string) {
       const that = this;
       const btab = this.components.side.ui.tab.Browse;
-      btab.ui.tree.opt.switchToBrowseTab = btab.ui.tree.opt.switchToBrowseTab || (() => {
+      btab.tree.opt.switchToBrowseTab = btab.tree.opt.switchToBrowseTab || (() => {
          if (that.components.side.Tab() !== 'Browse') {
             that.components.nav.Touch('Browse');
             that.components.side.Touch('Browse');
          }
       });
-      btab.ui.tree.opt.highlightItem = btab.ui.tree.opt.highlightItem || ((elem: any) => {
+      btab.tree.opt.highlightItem = btab.tree.opt.highlightItem || ((elem: any) => {
          that.browserTabScrollTo(elem);
          ElemFlash(elem);
       });
-      btab.ui.tree.AsyncExpandTo(path);
+      btab.tree.AsyncExpandTo(path);
    }
 
    browserTabScrollTo(elem: any) {

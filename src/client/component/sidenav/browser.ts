@@ -4,12 +4,13 @@ import {FolderTree} from '../treeview';
 export class SideNavBrowserTab {
    ui = {
       self: document.createElement('div'),
-      tree: <any>null
+      tree: document.createElement('div')
    };
+   tree: FolderTree = null;
 
    constructor() {
-      this.ui.tree = <any>(new FolderTree(this.ui.self, {}));
-      this.ui.tree.root.AsyncUnfold();
+      this.tree = new FolderTree(this.ui.tree, {});
+      this.tree.root.AsyncUnfold();
       this.Render();
    }
 
@@ -22,6 +23,7 @@ export class SideNavBrowserTab {
       div.className = 'item-thin item-yellow';
       ElemAppendText(div, 'Browse');
       this.ui.self.appendChild(div);
+      this.ui.self.appendChild(this.ui.tree);
    }
 
    Show() { this.ui.self.style.display = 'block'; }
