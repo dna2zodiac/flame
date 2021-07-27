@@ -1,4 +1,4 @@
-import {TaskRunner} from './task';
+import {TaskRunner} from '../../share/task';
 
 class TaskWorker {
    path: string;
