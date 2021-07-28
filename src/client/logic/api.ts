@@ -29,7 +29,7 @@ class FakeRequest {
    Cacnel() {}
 }
 
-export const DataClient = {
+export const FakeDataClient = {
    User: {
       CheckLogin: () => {
          return FakeAjax(null, true, null);
@@ -67,6 +67,98 @@ export const DataClient = {
                'test for scrollable'
             )
          }, null);
+      }, // GetFileContents
+      GetMetadata: (path: string, opt: any) => {
+         // TODO: load partially / on demand
+         return FakeAjax(null, {
+            // partial flag, [startLineNumber, endLineNumber]
+            range: [1, 500],
+            comment: [
+               { user: 'flame', markdown: '`test` http://test.com/1', linenumber: 8 },
+               { user: 'test', markdown: '`test` https://test.com/safe?test=1' }
+            ],
+            symbol: [
+               { name: 'test', type: 'variable', linenumber: 5 }
+            ],
+            linkage: [
+               {
+                  ref: 'test', linenumber: 2,
+                  in: { link: '/test0/README.md', tag: ['definition'], linenumber: 6 }
+               },
+               {
+                  ref: 'test', linenumber: 2,
+                  out: { link: '/test4/README.md', tag: ['reference'], linenumber: 20 }
+               }
+            ]
+         }, null);
+      }, // GetMetadata
+      Search: (query: string, n: number = 50) => {
+         const items: any = [];
+         items.push({
+            path: '/test1/README.md',
+            matches: [
+               { L: 1, T: 'This is a test readme file.' },
+               { L: 5, T: 'This is a test readme file and it is a loooooooooooooooooong line here.' }
+            ]
+         });
+         for (let i = 2; i < 30; i++) {
+            items.push({
+               path: `/test${i}/README.md`,
+               matches: [ { L: 1, T: 'This is a test readme file.' } ]
+            });
+         }
+         return FakeAjax(null, {
+            matchRegexp: '[Tt]his is',
+            items: items
+         }, null);
+      }, // Search
+   }, // Project
+   Topic: {
+      GetMetadata: (topic: string) => {
+         return FakeAjax(null, {
+            name: 'this is a test topic',
+            scope: 'public',
+            item: [
+               { path: '/test0/README.md', linenumber: 7 },
+               { path: '/test1/package.json' }
+            ],
+            comment: [
+               { user: 'flame', markdown: 'test topic' },
+               { user: 'test', markdown: 'topic test' }
+            ]
+         }, null);
+      }, // GetMetadata
+   } // Topic
+};
+
+export const DataClient = {
+   User: {
+      CheckLogin: () => {
+         return FakeAjax(null, true, null);
+      }, // CheckLogin
+   }, // User
+   Project: {
+      List: () => {
+         return Ajax({
+            url: '/api/content/get',
+            method: 'GET',
+            return: 'json'
+         });
+      }, // List
+      GetDirectoryContents: (path: string) => {
+         if (!path || path === '/') return DataClient.Project.List();
+         return Ajax({
+            url: '/api/content/get' + path,
+            method: 'GET',
+            return: 'json'
+         });
+      }, // GetDirectoryContents
+      GetFileContents: (path: string) => {
+         return Ajax({
+            url: '/api/content/get' + path,
+            method: 'GET',
+            return: 'json'
+         });
       }, // GetFileContents
       GetMetadata: (path: string, opt: any) => {
          // TODO: load partially / on demand

@@ -70,6 +70,14 @@ const api = {
             });
          });
       }, // readdir
+      stat: async (path) => {
+         return new Promise((r, e) => {
+            i_fs.stat(path, (err, stat) => {
+               if (err) return e(err);
+               r(stat);
+            });
+         });
+      },
       mkdir: async (path) => {
          return new Promise((r, e) => {
             i_fs.mkdir(path, { recursive: true }, (err) => {

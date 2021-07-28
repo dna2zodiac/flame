@@ -71,5 +71,3 @@ export const Env: any = {
    task: new TaskRunner(),
    worker: new TaskWorker('lang-worker.js')
 };
-(<any>window).DebEnv = Env;
-console.log((<any>window).DebEnv);

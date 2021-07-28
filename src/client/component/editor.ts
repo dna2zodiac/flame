@@ -102,6 +102,9 @@ export class SourceCodeViewer {
             this.cache.maxLineWidth = el.offsetWidth;
          }
       }
+      if (this.ui.self.offsetWidth > this.cache.maxLineWidth) {
+         this.cache.maxLineWidth = this.ui.self.offsetWidth;
+      }
    }
 
    OnClickLineNumber(fn: any) {

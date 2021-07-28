@@ -164,6 +164,7 @@ interface AjaxRequestOpt {
    data?: any;
    json?: any;
    raw?: any;
+   return?: any;
 }
 
 function dataToUriParam (data: any): string {
@@ -191,7 +192,11 @@ export function Ajax(opt: AjaxRequestOpt): AjaxRequest {
                'readystatechange', onReadyStateChange
             );
             if (~~(evt.target.status / 100) === 2) {
-               r(evt.target.response);
+               if (opt.return === 'json') {
+                  r(JSON.parse(evt.target.response));
+               } else {
+                  r(evt.target.response);
+               }
             } else {
                e(evt.target.status);
             }
