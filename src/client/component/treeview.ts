@@ -97,6 +97,26 @@ class FolderNode {
                   that.state = 'error';
                   return r(false);
                }
+               result = result.sort((a: any, b: any) => {
+                  if (!a && !b) return 0;
+                  if (!a || !a.name) return 1;
+                  if (!b || !b.name) return -1;
+                  const namea = a.name.toLowerCase();
+                  const nameb = b.name.toLowerCase();
+                  const pab = namea.endsWith('/');
+                  const pbb = nameb.endsWith('/');
+                  if (pab && pbb) {
+                     if (namea > nameb) return 1;
+                     return -1;
+                  } else if (pab && !pbb) {
+                     return -1;
+                  } else if (!pab && pbb) {
+                     return 1;
+                  } else {
+                     if (namea > nameb) return 1;
+                     return -1;
+                  }
+               });
                result.forEach((item: any) => {
                   if (!item.name) return;
                   if (item.name.endsWith('/')) {
