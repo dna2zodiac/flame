@@ -4,6 +4,8 @@ const iUtil = require('../framework/util');
 const iPath = require('path');
 const iFile = require('fs');
 
+const IGNORE_DIRS = ['.git'];
+
 export class LocalFSContentProvider implements IContentProvider {
    baseDir: string;
 
@@ -66,6 +68,7 @@ export class LocalFSContentProvider implements IContentProvider {
          );
          if (!st) return;
          if (st.isDirectory()) {
+            if (IGNORE_DIRS.includes(name)) continue;
             let full = name + '/';
             if (combine) {
                let fullrp = rp;
