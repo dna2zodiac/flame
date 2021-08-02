@@ -295,12 +295,12 @@ class BodyConnector {
    browserTabScrollTo(elem: any) {
       if (this.components.side.Tab() !== 'Browse') return;
       const side = this.components.side.ui.self;
-      const top = elem.offsetTop - side.offsetTop;
-      const top0 = side.scrollTop;
-      const h = elem.offsetHeight;
-      const h0 = side.offsetHeight;
-      const x = side.scrollLeft;
       const btabDiv = this.components.side.ui.tab.Browse.GetDom();
+      const top = elem.offsetTop - side.offsetTop;
+      const top0 = btabDiv.scrollTop;
+      const h = elem.offsetHeight;
+      const h0 = btabDiv.offsetHeight;
+      const x = btabDiv.scrollLeft;
       if (top0 > top) {
          btabDiv.scrollTo(x, top);
       } else if (top0 + h0 - h < top) {
