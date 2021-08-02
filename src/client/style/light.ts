@@ -257,6 +257,11 @@ a.item:hover {
    padding: 0px;
    margin: 0px;
    tab-size: 4;
+   /* XXX: Mozilla FireFox for Ubuntu 90.0 (64bit)
+           "-moz-tab-size: 4" does not work?
+           it works the same as "-moz-tab-size: 1".
+           wtf! use 3 temporarily. */
+   -moz-tab-size: 3;
 }
 .editor-font {
    font-family: monospace;
