@@ -114,7 +114,7 @@ class AppSideNav {
    tab: string = null;
 
    constructor () {
-      this.ui.self.className = 'full-h scrollable-no';
+      this.ui.self.className = 'side-container full-h scrollable-no';
       this.ui.self.style.width = '300px';
       Object.keys(this.ui.tab).forEach((name: string) => {
          const tab = (<any>this.ui.tab)[name];

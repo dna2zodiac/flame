@@ -183,6 +183,11 @@ export const styleObjects = {
       width: '24px',
       height: '24px',
    },
+   '.side-container': {
+      // it is important for making side view
+      // out of flex box when screen is small
+      'background-color': 'white'
+   },
    '.editor-container': {
       width: '100%',
       height: '100%',

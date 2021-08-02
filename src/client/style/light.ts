@@ -41,6 +41,9 @@ export const styleObjects = {
    '.nav-icon-btn.active': {
       'border-right': '3px solid black'
    },
+   '.side-container': {
+      'background-color': 'white'
+   },
    '.editor-left-side': { 'background-color': 'white' },
    '.editor-linenumber > a.active': {
       'border-right': '3px solid blue',
