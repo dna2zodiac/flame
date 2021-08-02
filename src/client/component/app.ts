@@ -286,10 +286,8 @@ class BodyConnector {
          }
       });
       btab.tree.opt.highlightItem = btab.tree.opt.highlightItem || ((elem: any) => {
-         setTimeout(() => {
          that.browserTabScrollTo(elem);
          ElemFlash(elem);
-         });
       });
       btab.tree.AsyncExpandTo(path);
    }
@@ -308,6 +306,7 @@ class BodyConnector {
       } else if (top0 + h0 - h < top) {
          let y = top - h0 + h;
          if (y < 0) y = 0;
+         else if (y > top) y = top;
          btabDiv.scrollTo(x, y);
       }
    }
