@@ -28,6 +28,7 @@ export class BreadCrumb {
       parts.forEach((name) => {
          curpath += name + '/';
          const a = document.createElement('a');
+         a.className = 'breadcrumb-a';
          ElemAppendText(a, name);
          a.href = '#' + curpath;
          a.setAttribute('data-path', curpath);

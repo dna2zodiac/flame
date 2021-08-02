@@ -41,6 +41,9 @@ export const styleObjects = {
    '.nav-icon-btn.active': {
       'border-right': '3px solid black'
    },
+   '.breadcrumb-a': {
+      color: 'black'
+   },
    '.side-container': {
       'background-color': 'white'
    },

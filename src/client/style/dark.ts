@@ -1,32 +1,39 @@
 // dark theme
+// TODO: button(element icon) -> ?invert; e.g. search btn
 export const styleObjects = {
-   // TODO: fix dark color for item, item-input, ...
+   body: {
+      'background-color': 'black'
+   },
    '.title': {
-      color: '#fafafa'
+      color: '#060606'
    },
    '.header': {
-      color: '#fafafa',
-      'background-color': '#e4a961'
+      color: '#060606',
+      'background-color': '#805e35'
    },
    '.item': { color: '#ccc' },
    '.item-r': { color: '#ccc' },
    '.item-thin': { color: '#ccc' },
    '.item-btn': { border: '1px solid #ccc' },
-   '.item-input': { 'border-bottom': '1px solid #ccc' },
+   '.item-input': {
+      'border-bottom': '1px solid #777',
+      color: '#ccc',
+      'background-color': 'black'
+   },
    'a.item-r:hover': { color: '#ccc' },
    'a.item:hover': { color: '#ccc' },
    '.item-btn:hover': { border: '1px solid #ccc', color: '#666' },
-   '.item-grey':   { 'background-color': '#e2e2e2' },
-   '.item-red':    { 'background-color': '#f5cdcd' },
-   '.item-green':  { 'background-color': '#cff5cd' },
-   '.item-blue':   { 'background-color': '#cdebf5' },
-   '.item-yellow': { 'background-color': '#fbf59f' },
-   '.item-orange': { 'background-color': '#ffe6cc' },
-   '.item-pink':   { 'background-color': '#f5cde8' },
-   '.item-purple': { 'background-color': '#dfcdf5' },
-   '.item-gray-1': { 'background-color': '#ddd' },
-   '.item-gray-2': { 'background-color': '#aaa' },
-   '.item-gray-3': { 'background-color': '#777' },
+   '.item-grey':   { 'background-color': '#262626' },
+   '.item-red':    { 'background-color': '#735353' },
+   '.item-green':  { 'background-color': '#465b45' },
+   '.item-blue':   { 'background-color': '#4d6066' },
+   '.item-yellow': { 'background-color': '#625f37' },
+   '.item-orange': { 'background-color': '#847463' },
+   '.item-pink':   { 'background-color': '#977c8f' },
+   '.item-purple': { 'background-color': '#492459' },
+   '.item-gray-1': { 'background-color': '#333' },
+   '.item-gray-2': { 'background-color': '#777' },
+   '.item-gray-3': { 'background-color': '#999' },
    '.spin::before': {
       'border-top-color': '#1c87c9',
       'border-radius': '50%'
@@ -36,16 +43,19 @@ export const styleObjects = {
    },
    '.nav-icon-btn': {
       'border-right': '3px solid white',
-      'filter': 'invert(100%)'
+      filter: 'invert(100%)'
    },
    '.nav-icon-btn:hover': {
       'border-right': '3px solid #ccc',
       'background-color': '#eee',
-      'filter': 'invert(100%)'
+      filter: 'invert(100%)'
    },
    '.nav-icon-btn.active': {
       'border-right': '3px solid black',
-      'filter': 'invert(100%)'
+      filter: 'invert(100%)'
+   },
+   '.breadcrumb-a': {
+      color: 'white'
    },
    '.side-container': {
       'background-color': 'black'
@@ -60,6 +70,9 @@ export const styleObjects = {
    },
    '.editor-linenumber > a.active': {
       'border-right': '3px solid blue',
-      'backround-color': '#ccf'
+      'backround-color': '#484860'
+   },
+   '.folder-fold-btn': {
+      filter: 'invert(100%)'
    }
 };

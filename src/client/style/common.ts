@@ -183,6 +183,9 @@ export const styleObjects = {
       width: '24px',
       height: '24px',
    },
+   '.breadcrumb-a': {
+      color: 'black'
+   },
    '.side-container': {
       // it is important for making side view
       // out of flex box when screen is small
