@@ -1,3 +1,2 @@
 // dark theme
-export const style = `
-`;
+export const styleObjects = {};
