@@ -286,8 +286,10 @@ class BodyConnector {
          }
       });
       btab.tree.opt.highlightItem = btab.tree.opt.highlightItem || ((elem: any) => {
+         setTimeout(() => {
          that.browserTabScrollTo(elem);
          ElemFlash(elem);
+         });
       });
       btab.tree.AsyncExpandTo(path);
    }
@@ -300,12 +302,13 @@ class BodyConnector {
       const h = elem.offsetHeight;
       const h0 = side.offsetHeight;
       const x = side.scrollLeft;
+      const btabDiv = this.components.side.ui.tab.Browse.GetDom();
       if (top0 > top) {
-         side.scrollTo(x, top);
+         btabDiv.scrollTo(x, top);
       } else if (top0 + h0 - h < top) {
          let y = top - h0 + h;
          if (y < 0) y = 0;
-         side.scrollTo(x, y);
+         btabDiv.scrollTo(x, y);
       }
    }
 
