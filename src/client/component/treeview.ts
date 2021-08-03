@@ -190,7 +190,32 @@ export class FolderTree {
       parts.pop();
       while (node && parts.length) {
          const name = parts.shift();
-         node = node.children[name + '/'];
+         const name0 = name + '/';
+         const next = node.children[name0];
+         if (next) {
+            node = next;
+         } else {
+            // e.g. main/com/java/
+            //      main/
+            const nodeMem = node;
+            let possible = Object.keys(node.children).filter(
+               (full: string) => full.startsWith(name0)
+            );
+            let match = name0;
+            node = null;
+            while (possible.length > 0 && parts.length > 0) {
+               const subname = parts.shift();
+               match += subname + '/';
+               possible = possible.filter(
+                  (full: string) => full.startsWith(match)
+               );
+               if (possible[0] === match) {
+                  node = nodeMem.children[match];
+                  break;
+               }
+            }
+            // main/ -> match = main/com/java/
+         }
       }
       return node;
    }
@@ -252,7 +277,23 @@ export class FolderTree {
          function runLoadingTask(task: any) {
             let node = that.LocateNode(task.base);
             if (!node) return e('cannot load: ' + task.path);
-            node = node.children[task.name];
+            if (task.name in node.children) {
+               node = node.children[task.name];
+            } else {
+               const possible = that.taskQueue.filter((x: any) => x.base === task.base + task.name);
+               // should only one here
+               const taskX = possible[0];
+               if (taskX) {
+                  taskX.base = task.base;
+                  taskX.name = task.name + taskX.name;
+                  // e.g. folder path combined like /main/com/java
+                  runLoadingTasks();
+                  return;
+               }
+               // XXX: how to select when user choose /main/com
+               //      but the folder path combined as /main/com/java
+               //      /main/com -> /main/com/java, or /main/com -> /, or <not found>
+            }
             if (!node) return e('not found: ' + task.name + ' in ' + task.base);
             lastNode = node;
             if (node.state === 'loaded') {
