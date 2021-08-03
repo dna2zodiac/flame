@@ -27,14 +27,18 @@ export class BreadCrumb {
       let curpath = '/';
       parts.forEach((name) => {
          curpath += name + '/';
+         this.ui.self.appendChild(renderLink(name, curpath));
+         ElemAppendText(this.ui.self, ' / ');
+      });
+      this.ui.self.appendChild(renderLink(last, curpath + last));
+
+      function renderLink(name: string, path: string): HTMLElement {
          const a = document.createElement('a');
          a.className = 'breadcrumb-a';
          ElemAppendText(a, name);
-         a.href = '#' + curpath;
-         a.setAttribute('data-path', curpath);
-         this.ui.self.appendChild(a);
-         ElemAppendText(this.ui.self, ' / ');
-      });
-      ElemAppendText(this.ui.self, last);
+         a.href = '#' + path;
+         a.setAttribute('data-path', path);
+         return a;
+      }
    }
 }
