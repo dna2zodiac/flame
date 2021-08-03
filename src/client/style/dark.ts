@@ -5,10 +5,10 @@ export const styleObjects = {
       'background-color': 'black'
    },
    '.title': {
-      color: '#060606'
+      color: '#fafafa'
    },
    '.header': {
-      color: '#060606',
+      color: '#fafafa',
       'background-color': '#805e35'
    },
    '.item': { color: '#ccc' },
@@ -74,5 +74,8 @@ export const styleObjects = {
    },
    '.folder-fold-btn': {
       filter: 'invert(100%)'
+   },
+   '.search-item a': {
+      color: '#ccc'
    }
 };

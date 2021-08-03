@@ -259,5 +259,6 @@ export const styleObjects = {
    },
    '.search-item a': {
       'text-decoration': 'none',
+      color: 'black'
    },
 };

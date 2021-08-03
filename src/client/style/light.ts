@@ -51,5 +51,8 @@ export const styleObjects = {
    '.editor-linenumber > a.active': {
       'border-right': '3px solid blue',
       'backround-color': '#ccf'
+   },
+   '.search-item a': {
+      color: 'black'
    }
 };
