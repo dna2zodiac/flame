@@ -70,7 +70,8 @@ export const styleObjects = {
    },
    '.editor-linenumber > a.active': {
       'border-right': '3px solid blue',
-      'backround-color': '#484860'
+      'background-color': '#484860',
+      color: 'white'
    },
    '.folder-fold-btn': {
       filter: 'invert(100%)'
