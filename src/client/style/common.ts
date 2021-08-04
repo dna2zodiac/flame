@@ -242,7 +242,10 @@ export const styleObjects = {
       'z-index': '-10',
    },
    '.editor-highlight > div': {
-      position: 'absolute',
+      position: 'absolute'
+   },
+   '.editor-highlight > div.line': {
+      'background-color': '#ff7'
    },
    '.folder-fold-btn': {
       background: 'url(\'img/angle.svg\')',

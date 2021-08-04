@@ -52,6 +52,9 @@ export const styleObjects = {
       'border-right': '3px solid blue',
       'backround-color': '#ccf'
    },
+   '.editor-highlight > div.line': {
+      'background-color': '#ff7'
+   },
    '.search-item a': {
       color: 'black'
    }

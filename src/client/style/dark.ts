@@ -65,13 +65,15 @@ export const styleObjects = {
       'background-color': 'black'
    },
    '.editor-text': {
-      color: '#ccc',
-      'background-color': 'black'
+      color: '#ccc'
    },
    '.editor-linenumber > a.active': {
       'border-right': '3px solid blue',
       'background-color': '#484860',
       color: 'white'
+   },
+   '.editor-highlight > div.line': {
+      'background-color': '#686819'
    },
    '.folder-fold-btn': {
       filter: 'invert(100%)'
