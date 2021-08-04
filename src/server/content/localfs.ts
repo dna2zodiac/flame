@@ -1,10 +1,9 @@
 import {IContentProvider} from './interface';
+import {IGNORE_DIRS} from '../../share/search/indexer';
 
 const iUtil = require('../framework/util');
 const iPath = require('path');
 const iFile = require('fs');
-
-const IGNORE_DIRS = ['.git'];
 
 export class LocalFSContentProvider implements IContentProvider {
    baseDir: string;
