@@ -91,5 +91,6 @@ function getNodeJs(path, outname) {
 module.exports = [
    getWebJs('./src/client/index.ts', 'index.js'),
    getWebJs('./src/client/worker/lang.ts', 'lang-worker.js'),
-   getNodeJs('./src/server/index.ts', 'index.js')
+   getNodeJs('./src/server/index.ts', 'index.js'),
+   getNodeJs('./src/share/analyzer.ts', 'scripts/analyzer.js')
 ];

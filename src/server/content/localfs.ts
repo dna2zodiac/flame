@@ -1,5 +1,5 @@
 import {IContentProvider} from './interface';
-import {IGNORE_DIRS} from '../../share/search/indexer';
+import {IGNORE_DIRS} from '../../share/env';
 
 const iUtil = require('../framework/util');
 const iPath = require('path');

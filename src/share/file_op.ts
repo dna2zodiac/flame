@@ -117,3 +117,20 @@ export async function FsHash(path: string): Promise<any> {
       input.on('error', (err: any) => e(err))
    });
 }
+
+export async function FsMv(path: string, newpath: string): Promise<any> {
+   return new Promise((r: any, e: any) => {
+      iFs.rename(path, newpath, (err: any) => {
+         if (err) return e(err); else r();
+      });
+   });
+}
+
+export async function FsRm(path: string): Promise<any> {
+   return new Promise((r: any, e: any) => {
+      iFs.unlink(path, (err: any) => {
+         if (err) return e(err); else r();
+      });
+   });
+}
+

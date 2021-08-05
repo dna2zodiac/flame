@@ -19,11 +19,21 @@ export class LineReader {
       this.cache = [Buffer.alloc(0)];
    }
 
+   Eof(): boolean {
+      return this.eof;
+   }
+
    async Open(): Promise<any> {
       if (this.fd >= 0) return Promise.resolve();
       return new Promise((r: any, e: any) => {
          iFs.open(this.filename, (err: any, fd: number) => {
-            if (err) return e(err);
+            if (err) {
+               if (err.code === 'ENOENT') {
+                  this.eof = true;
+                  r();
+               }
+               return e(err);
+            }
             this.fd = fd;
             r();
          });
