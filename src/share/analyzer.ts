@@ -1,5 +1,5 @@
 import {LineReader} from './large_file';
-import {FsReaddir, FsMkdir, FsStat, FsHash, FsOpen, FsWrite, FsClose, FsRm, FsMv} from './file_op';
+import {FsReaddir, FsMkdir, FsStat, FsHash, FsOpen, FsRead, FsWrite, FsClose, FsRm, FsMv} from './file_op';
 import {IGNORE_DIRS} from './env';
 
 const iPath = require('path');
@@ -14,10 +14,11 @@ const iPath = require('path');
    - /outdir/<hash>/3gram.json
    - /outdir/<hash>/list.json
    - /outdir/<hash>/...
-   - /outdir/meta.json  { mtime }
-   - /outdir/file       { path, mtime }
-   - /outdir/new        { path, mtime }
-   - /outdir/changelist { path, mtime, action }
+   - /outdir/meta.json  { m=mtime }
+   - /outdir/cur        { m, p=path, h=hash }
+   - /outdir/new        { m, p }
+      - /outdir/.newh   { m, p, h }
+   - /outdir/changelist { m, p, a=action, h, h_=(new hash) }
    - /outdir/index/...
  - merge word-index and 3gram-index to project level
  - merge project-level index to global level
@@ -85,8 +86,10 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
       //   --> /outdir/changelist
       const oldP = iPath.join(outDir, 'cur');
       const newP = iPath.join(outDir, 'new');
+      const outNewWithHashP = iPath.join(outDir, '.newh');
       const outP = iPath.join(outDir, 'changelist');
       const outFd = await FsOpen(outP, 'w+');
+      const outNewWithHashFd = await FsOpen(outNewWithHashP, 'w+');
       const oldF = new LineReader(oldP);
       const newF = new LineReader(newP);
       // TODO: use try...catch... to wrap io operations
@@ -103,18 +106,22 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
             // all remains added
             if (newL.length) {
                const objNew = JSON.parse(newL);
-               await FsWrite(outFd, Buffer.from(JSON.stringify(
-                  Object.assign({ a: 'a' }, objNew)
-               ) + '\n'));
+               const hash = await getFileHash(objNew.p);
+               await FsWrite(outNewWithHashFd, Buffer.from(
+                  JSON.stringify(Object.assign({ h: hash }, objNew)) + '\n'
+               ));
+               await FsWrite(outFd, Buffer.from(
+                  JSON.stringify(Object.assign({ a: 'a', h_: hash }, objNew)) + '\n'
+               ));
             }
             nextNew = true;
          } else if (newL === null) {
             // all remains deleted
             if (oldL.length) {
                const objOld = JSON.parse(oldL);
-               await FsWrite(outFd, Buffer.from(JSON.stringify(
-                  Object.assign({ a: 'd' }, objOld)
-               ) + '\n'));
+               await FsWrite(outFd, Buffer.from(
+                  JSON.stringify(Object.assign({ a: 'd' }, objOld)) + '\n'
+               ));
             }
             nextOld = true;
          } else if (!oldL.length || !newL.length) {
@@ -124,20 +131,28 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
             const objOld = JSON.parse(oldL);
             const objNew = JSON.parse(newL);
             if (objOld.p > objNew.p) {
-               await FsWrite(outFd, Buffer.from(JSON.stringify(
-                  Object.assign({ a: 'a' }, objNew)
-               ) + '\n'));
+               const hash = await getFileHash(objNew.p);
+               await FsWrite(outNewWithHashFd, Buffer.from(
+                  JSON.stringify(Object.assign({ h: hash }, objNew)) + '\n'
+               ));
+               await FsWrite(outFd, Buffer.from(
+                  JSON.stringify(Object.assign({ a: 'a', h_: hash }, objNew)) + '\n'
+               ));
                nextNew = true;
             } else if (objOld.p < objNew.p) {
-               await FsWrite(outFd, Buffer.from(JSON.stringify(
-                  Object.assign({ a: 'd' }, objOld)
-               ) + '\n'));
+               await FsWrite(outFd, Buffer.from(
+                  JSON.stringify(Object.assign({ a: 'd' }, objOld)) + '\n'
+               ));
                nextOld = true;
             } else {
+               const hash = await getFileHash(objNew.p);
+               await FsWrite(outNewWithHashFd, Buffer.from(
+                  JSON.stringify(Object.assign({ h: hash }, objNew)) + '\n'
+               ));
                if (objOld.m !== objNew.m) {
-                  await FsWrite(outFd, Buffer.from(JSON.stringify(
-                     Object.assign({ a: 'u' }, objNew)
-                  ) + '\n'));
+                  await FsWrite(outFd, Buffer.from(
+                     JSON.stringify(Object.assign({ a: 'u', h_: hash }, objOld)) + '\n'
+                  ));
                }
                nextOld = true;
                nextNew = true;
@@ -147,43 +162,86 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
          if (nextNew) newL = await newF.NextLine();
       }
       await FsClose(outFd);
+      await FsClose(outNewWithHashFd);
       await oldF.Close();
       await newF.Close();
-      await FsMv(newP, oldP);
+      await FsMv(outNewWithHashP, oldP);
+      await FsRm(newP);
+   }
+
+   async function getFileHash(item: string): Promise<any> {
+      return await FsHash(iPath.join(srcRoot, item));
    }
 
    async function analyzeFiles(): Promise<any> {
       // TODO: read(/outdir/changelist)
       //       for each file
       //       - index add/del/update
-      const changeL = new LineReader(iPath.join(outDir, 'changelist'));
-      await changeL.Open();
-      await changeL.Close();
+      const changeP = iPath.join(outDir, 'changelist');
+      const changeF = new LineReader(changeP);
+      await changeF.Open();
+      let line: string;
+      while ((line = await changeF.NextLine()) !== null) {
+         if (!line) continue;
+         const obj = JSON.parse(line);
+         const path = iPath.join(srcRoot, obj.p);
+         switch (obj.a) {
+            case 'u':
+               await removeFileItem(obj);
+               await analyzeFileItem(obj);
+               break;
+            case 'd':
+               await removeFileItem(obj);
+               break;
+            case 'a':
+               await analyzeFileItem(obj);
+               break;
+            default:
+               throw `unknown action type: ${obj.a}`;
+         }
+      }
+      await changeF.Close();
+      await FsRm(changeP);
    }
 
-   // TODO: use in indexFiles
-   async function indexFileItem(path: string): Promise<any> {
-      const item = path.substring(srcRoot.length);
-      const hash = await FsHash(path);
-      const outHashDir = getIndexDirname(hash);
+   /*sync*/ function getMetaDirname(hash: string): string {
+      let parts = [];
+      for (let i = 0, n = hash.length; i < n; i += 4) {
+         parts.push(hash.substring(i, i+4));
+      }
+      return iPath.join(outDir, ...parts);
+   }
+
+   async function isBinaryFile(path: string): Promise<any> {
+      const fd = await FsOpen(path);
+      const probe = (await FsRead(fd, 1024 * 1024)).toString();
+      if (probe.indexOf('\x00') >= 0) return true;
+      return false;
+   }
+
+   async function analyzeFileItem(obj: any): Promise<any> {
+      const path = iPath.join(srcRoot, obj.p);
+      const hash = obj.h_;
+      const outHashDir = getMetaDirname(hash);
+      console.log('analyze:', obj.p, await isBinaryFile(path));
       /*if (await FsExists(outHashDir)) {
          // TODO
          // possible the same contents we meet
       } else {
       }*/
-
-      function getIndexDirname(hash: string): string {
-         let parts = [];
-         for (let i = 0, n = hash.length; i < n; i += 4) {
-            parts.push(hash.substring(i, i+4));
-         }
-         return iPath.join(outDir, ...parts);
-      }
    }
+
+   async function removeFileItem(obj: any): Promise<any> {
+      const item = obj.p;
+      const hash = obj.h;
+      const outHashDir = getMetaDirname(hash);
+      console.log('remove:', obj.p);
+   }
+
    async function mergeIndexes(path: string): Promise<any> {
       console.log('output:', path);
    }
 }
 
 console.log('debugLine; remove after the module complete');
-AnalyzeProject(process.argv[2], process.argv[3], null).then(() => console.log('done'), (err: any) => console.error(err));
+AnalyzeProject(process.argv[2], process.argv[3], null).then(() => console.log('done'), (err: any) => console.error('error', err));

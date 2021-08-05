@@ -48,6 +48,11 @@ export class LineReader {
       if (this.eof) return Promise.resolve(null);
       await this.fillCache();
       if (this.cache.length <= 1) {
+         if (!this.cache[0] || this.cache[0].length === 0) {
+            // empty file
+            this.eof = true;
+            return Promise.resolve(null);
+         }
          // TODO: deal with too long line
          //       if change `if` to `while`,
          //       do N times to allow cache size * N length line
