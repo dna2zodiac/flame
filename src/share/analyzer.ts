@@ -6,9 +6,17 @@ import {
 } from './file_op';
 import {IGNORE_DIRS} from './env';
 
+import * as searchPlugin from './plugin/analyzer/search_indexer';
+
 const iPath = require('path');
+
 const ANALYSIS_PLUGINS: any[] = [
    /* { Inc, Dec } */
+   /* searchPlugin:
+      project-level first, file-level then
+    */
+   { Inc: searchPlugin.IncProjectLv, Dec: searchPlugin.DecProjectLv },
+   { Inc: searchPlugin.IncFileLv, Dec: searchPlugin.DecFileLv },
 ];
 
 /*
@@ -233,7 +241,9 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
       await FsMkdir(outHashDir);
       for (let i = 0, n = ANALYSIS_PLUGINS.length; i < n; i++) {
          const IncFn = ANALYSIS_PLUGINS[i].Inc;
-         await IncFn(Object.assign({ p_: path }, obj), outDir);
+         await IncFn(Object.assign({
+            p_: path, b: isBinary
+         }, obj), outDir);
       }
    }
 

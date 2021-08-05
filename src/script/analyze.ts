@@ -4,7 +4,7 @@ const srcRoot = process.argv[2];
 const outDir = process.argv[3];
 
 if (process.argv.length < 4) {
-   console.log(`${process.argv[0] process.argv[1] srcRoot outDir}`);
+   console.log(`usage: ${process.argv[0]} ${process.argv[1]} srcRoot outDir`);
    process.exit();
 }
 

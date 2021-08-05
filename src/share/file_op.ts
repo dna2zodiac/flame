@@ -85,10 +85,21 @@ export async function FsStat(path: string): Promise<any> {
    });
 }
 
+export async function FsLstat(path: string): Promise<any> {
+   return new Promise((r: any, e: any) => {
+      iFs.lstat(path, (err: any, stat: any) => {
+         if (err) return e(err); else r(stat);
+      });
+   });
+}
+
 export async function FsReadFile(path: string): Promise<any> {
    return new Promise((r: any, e: any) => {
       iFs.readFile(path, (err: any, data: any) => {
-         if (err) return e(err); else r(data);
+         if (err) {
+            if (err.code === 'ENOENT') return r(null);
+            return e(err);
+         } else r(data);
       });
    });
 }
@@ -132,5 +143,44 @@ export async function FsRm(path: string): Promise<any> {
          if (err) return e(err); else r();
       });
    });
+}
+
+export async function FsRmdir(path: string): Promise<any> {
+   return new Promise((r: any, e: any) => {
+      iFs.rmdir(path, (err: any) => {
+         if (err) return e(err); else r();
+      });
+   });
+}
+
+export async function FsRm_r(path: string): Promise<any> {
+   const stat = await FsLstat(path);
+   if (stat.isDirectory()) {
+      const items = await FsReaddir(path);
+      for (let i = 0, n = items.length; i < n; i++) {
+         const item = items[i];
+         await FsRm_r(iPath.join(path, item));
+      }
+      await FsRmdir(path);
+   } else {
+      await FsRm(path);
+   }
+}
+
+export async function FsRm_up(path: string): Promise<any> {
+   // rm -r path
+   // (.parent.children.length === 0) rmdir .parent
+   await FsRm_r(path);
+   let parent = iPath.dirname(path), lastParent = path;
+   while (parent !== lastParent) {
+      const items = await FsReaddir(parent);
+      if (items.length === 0) {
+         await FsRmdir(parent);
+         lastParent = parent;
+         parent = iPath.dirname(parent);
+      } else {
+         lastParent = parent;
+      }
+   }
 }
 
