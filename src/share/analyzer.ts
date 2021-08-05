@@ -1,8 +1,15 @@
 import {LineReader} from './large_file';
-import {FsReaddir, FsMkdir, FsStat, FsHash, FsOpen, FsRead, FsWrite, FsClose, FsRm, FsMv} from './file_op';
+import {
+   FsReaddir, FsMkdir, FsStat, FsHash,
+   FsOpen, FsRead, FsWrite, FsClose,
+   FsRm, FsMv, FsExists
+} from './file_op';
 import {IGNORE_DIRS} from './env';
 
 const iPath = require('path');
+const ANALYSIS_PLUGINS: any[] = [
+   /* { Inc, Dec } */
+];
 
 /*
  analyze process:
@@ -14,14 +21,14 @@ const iPath = require('path');
    - /outdir/<hash>/3gram.json
    - /outdir/<hash>/list.json
    - /outdir/<hash>/...
-   - /outdir/meta.json  { m=mtime }
-   - /outdir/cur        { m, p=path, h=hash }
-   - /outdir/new        { m, p }
-      - /outdir/.newh   { m, p, h }
-   - /outdir/changelist { m, p, a=action, h, h_=(new hash) }
-   - /outdir/index/...
- - merge word-index and 3gram-index to project level
- - merge project-level index to global level
+   - /outdir/.cur        { m, p=path, h=hash }
+   - /outdir/.new        { m, p }
+      - /outdir/.newh    { m, p, h }
+   - /outdir/.changelist { m, p, a=action, h, h_=(new hash) }; p_=(real absolute path)
+   - /outdir/.index/...
+ - analysis plugins like:
+   - merge word-index and 3gram-index to project level
+   - merge project-level index to global level
  */
 
 export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
@@ -35,7 +42,6 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
       await detectChanges();
       await analyzeFiles();
       // TODO: handle the array `error`
-      await mergeIndexes(outDir);
       r();
    });
 
@@ -43,7 +49,7 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
       // scan current files
       // out: { p: path, m: mtime }
       const queue = ['/'];
-      const outNewFd = await FsOpen(iPath.join(outDir, 'new'), 'w+');
+      const outNewFd = await FsOpen(iPath.join(outDir, '.new'), 'w+');
       while (queue.length) {
          const item = queue.shift();
          const path = iPath.join(srcRoot, item);
@@ -84,10 +90,10 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
       // diff(/outdir/cur, /outdir/new)
       // out: { p: path, a: action(a=added,d=deleted,u=updated) }
       //   --> /outdir/changelist
-      const oldP = iPath.join(outDir, 'cur');
-      const newP = iPath.join(outDir, 'new');
+      const oldP = iPath.join(outDir, '.cur');
+      const newP = iPath.join(outDir, '.new');
       const outNewWithHashP = iPath.join(outDir, '.newh');
-      const outP = iPath.join(outDir, 'changelist');
+      const outP = iPath.join(outDir, '.changelist');
       const outFd = await FsOpen(outP, 'w+');
       const outNewWithHashFd = await FsOpen(outNewWithHashP, 'w+');
       const oldF = new LineReader(oldP);
@@ -177,7 +183,7 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
       // TODO: read(/outdir/changelist)
       //       for each file
       //       - index add/del/update
-      const changeP = iPath.join(outDir, 'changelist');
+      const changeP = iPath.join(outDir, '.changelist');
       const changeF = new LineReader(changeP);
       await changeF.Open();
       let line: string;
@@ -221,27 +227,25 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
 
    async function analyzeFileItem(obj: any): Promise<any> {
       const path = iPath.join(srcRoot, obj.p);
-      const hash = obj.h_;
-      const outHashDir = getMetaDirname(hash);
-      console.log('analyze:', obj.p, await isBinaryFile(path));
-      /*if (await FsExists(outHashDir)) {
-         // TODO
-         // possible the same contents we meet
-      } else {
-      }*/
+      const outHashDir = getMetaDirname(obj.h_);
+      const isBinary = await isBinaryFile(path);
+      console.log('analyze:', obj.p, isBinary);
+      await FsMkdir(outHashDir);
+      for (let i = 0, n = ANALYSIS_PLUGINS.length; i < n; i++) {
+         const IncFn = ANALYSIS_PLUGINS[i].Inc;
+         await IncFn(Object.assign({ p_: path }, obj), outDir);
+      }
    }
 
    async function removeFileItem(obj: any): Promise<any> {
-      const item = obj.p;
-      const hash = obj.h;
-      const outHashDir = getMetaDirname(hash);
+      const path = iPath.join(srcRoot, obj.p);
+      const outHashDir = getMetaDirname(obj.h);
       console.log('remove:', obj.p);
-   }
-
-   async function mergeIndexes(path: string): Promise<any> {
-      console.log('output:', path);
+      if (await FsExists(outHashDir)) {
+         for (let i = 0, n = ANALYSIS_PLUGINS.length; i < n; i++) {
+            const DecFn = ANALYSIS_PLUGINS[i].Dec;
+            await DecFn(Object.assign({ p_: path }, obj), outDir);
+         }
+      }
    }
 }
-
-console.log('debugLine; remove after the module complete');
-AnalyzeProject(process.argv[2], process.argv[3], null).then(() => console.log('done'), (err: any) => console.error('error', err));
