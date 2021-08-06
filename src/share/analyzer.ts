@@ -29,11 +29,11 @@ const ANALYSIS_PLUGINS: any[] = [
    - /outdir/<hash>/3gram.json
    - /outdir/<hash>/list.json
    - /outdir/<hash>/...
-   - /outdir/.cur        { m, p=path, h=hash }
-   - /outdir/.new        { m, p }
-      - /outdir/.newh    { m, p, h }
-   - /outdir/.changelist { m, p, a=action, h, h_=(new hash) }; p_=(real absolute path)
-   - /outdir/.index/...
+   - /outdir/_cur        { m, p=path, h=hash }
+   - /outdir/_new        { m, p }
+      - /outdir/_newh    { m, p, h }
+   - /outdir/_changelist { m, p, a=action, h, h_=(new hash) }; p_=(real absolute path)
+   - /outdir/_index/...
  - analysis plugins like:
    - merge word-index and 3gram-index to project level
    - merge project-level index to global level
@@ -57,7 +57,7 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
       // scan current files
       // out: { p: path, m: mtime }
       const queue = ['/'];
-      const outNewFd = await FsOpen(iPath.join(outDir, '.new'), 'w+');
+      const outNewFd = await FsOpen(iPath.join(outDir, '_new'), 'w+');
       while (queue.length) {
          const item = queue.shift();
          const path = iPath.join(srcRoot, item);
@@ -98,10 +98,10 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
       // diff(/outdir/cur, /outdir/new)
       // out: { p: path, a: action(a=added,d=deleted,u=updated) }
       //   --> /outdir/changelist
-      const oldP = iPath.join(outDir, '.cur');
-      const newP = iPath.join(outDir, '.new');
-      const outNewWithHashP = iPath.join(outDir, '.newh');
-      const outP = iPath.join(outDir, '.changelist');
+      const oldP = iPath.join(outDir, '_cur');
+      const newP = iPath.join(outDir, '_new');
+      const outNewWithHashP = iPath.join(outDir, '_newh');
+      const outP = iPath.join(outDir, '_changelist');
       const outFd = await FsOpen(outP, 'w+');
       const outNewWithHashFd = await FsOpen(outNewWithHashP, 'w+');
       const oldF = new LineReader(oldP);
@@ -191,7 +191,7 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
       // TODO: read(/outdir/changelist)
       //       for each file
       //       - index add/del/update
-      const changeP = iPath.join(outDir, '.changelist');
+      const changeP = iPath.join(outDir, '_changelist');
       const changeF = new LineReader(changeP);
       await changeF.Open();
       let line: string;

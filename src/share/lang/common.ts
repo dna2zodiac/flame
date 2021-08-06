@@ -17,6 +17,10 @@ export class BasicTextParser {
       const r: string[] = [];
       const n = text.length;
       opt = opt || {};
+
+      const keepStop = !opt.noKeepStop;
+      const wideCharWord = opt.nonAsciiWord;
+
       let cache = '';
       for (let i = 0; i < n; i++) {
          const ch = text.charAt(i);
@@ -25,8 +29,8 @@ export class BasicTextParser {
                r.push(cache);
                cache = '';
             }
-            if (opt.noKeepStop) r.push(ch);
-         } else if (opt.nonAsciiWord && ch.charCodeAt(0) >= 128) {
+            if (keepStop) r.push(ch);
+         } else if (wideCharWord && ch.charCodeAt(0) >= 128) {
             if (cache) {
                r.push(cache);
                cache = '';
