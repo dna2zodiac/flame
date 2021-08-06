@@ -76,6 +76,11 @@ export class LineReader {
             lines.forEach((line) => this.cache.push(line));
             const postN = Buffer.from(incompleteLine).length;
             this.cache.push(buf.slice(buf.length - postN, buf.length));
+            if (this.eof) {
+               const remains = this.cache.pop();
+               this.cache.push(remains.toString());
+               this.cache.push(Buffer.alloc(0));
+            }
             r();
          });
       });
