@@ -80,7 +80,10 @@ export async function FsClose(fd: number): Promise<any> {
 export async function FsStat(path: string): Promise<any> {
    return new Promise((r: any, e: any) => {
       iFs.stat(path, (err: any, stat: any) => {
-         if (err) return e(err); else r(stat);
+         if (err) {
+            if (err.code === 'ENOENT') return r(null);
+            return e(err);
+         } else r(stat);
       });
    });
 }
@@ -88,7 +91,10 @@ export async function FsStat(path: string): Promise<any> {
 export async function FsLstat(path: string): Promise<any> {
    return new Promise((r: any, e: any) => {
       iFs.lstat(path, (err: any, stat: any) => {
-         if (err) return e(err); else r(stat);
+         if (err) {
+            if (err.code === 'ENOENT') return r(null);
+            return e(err);
+         } else r(stat);
       });
    });
 }

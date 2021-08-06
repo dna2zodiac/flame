@@ -11,12 +11,23 @@ import * as searchPlugin from './plugin/analyzer/search_indexer';
 const iPath = require('path');
 
 const ANALYSIS_PLUGINS: any[] = [
-   /* { Inc, Dec } */
+   /* { Inc, Dec, Post }
+      Inc = (obj, metaRoot)
+      Dec = (obj, metaRoot)
+      Post = (metaRoot)
+    */
    /* searchPlugin:
       project-level first, file-level then
     */
-   { Inc: searchPlugin.IncProjectLv, Dec: searchPlugin.DecProjectLv },
-   { Inc: searchPlugin.IncFileLv, Dec: searchPlugin.DecFileLv },
+   {
+      Inc: searchPlugin.IncProjectLv,
+      Dec: searchPlugin.DecProjectLv,
+      Post: searchPlugin.PostProjectLv
+   },
+   {
+      Inc: searchPlugin.IncFileLv,
+      Dec: searchPlugin.DecFileLv
+   },
 ];
 
 /*
@@ -215,6 +226,10 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
          }
       }
       await changeF.Close();
+      for (let i = 0, n = ANALYSIS_PLUGINS.length; i < n; i++) {
+         const PostFn = ANALYSIS_PLUGINS[i].Post;
+         PostFn && await PostFn(outDir);
+      }
       await FsRm(changeP);
    }
 
@@ -241,7 +256,7 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
       await FsMkdir(outHashDir);
       for (let i = 0, n = ANALYSIS_PLUGINS.length; i < n; i++) {
          const IncFn = ANALYSIS_PLUGINS[i].Inc;
-         await IncFn(Object.assign({
+         IncFn && await IncFn(Object.assign({
             p_: path, b: isBinary
          }, obj), outDir);
       }
@@ -254,7 +269,7 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
       if (await FsExists(outHashDir)) {
          for (let i = 0, n = ANALYSIS_PLUGINS.length; i < n; i++) {
             const DecFn = ANALYSIS_PLUGINS[i].Dec;
-            await DecFn(Object.assign({ p_: path }, obj), outDir);
+            DecFn && await DecFn(Object.assign({ p_: path }, obj), outDir);
          }
       }
    }

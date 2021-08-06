@@ -4,8 +4,12 @@ import {
 } from '../../file_op';
 import {LineReader} from '../../large_file';
 import {/*GenInMemWordIndex, */GenInMemTrigramIndex} from '../../search/indexer';
+import {FileCache} from '../../cache';
 
 const iPath = require('path');
+
+const FILE_CACHE = 1024 * 1024 * 512;
+const env: any = {};
 
 /* special export; friend = ./search_searcher */
 export function getHashDir(metaRoot: string, hash: string): string {
@@ -175,11 +179,49 @@ export async function DecProjectLv(obj: any, metaRoot: string) {
    }
 }
 
+function encodeTriList(obj: any): any {
+   if (!obj || !obj.length) return null;
+   return Buffer.from(obj.map((itemline: any) => (
+      `${itemline[0]} ${itemline[1]}`
+   )).join('\n'));
+}
+
+function decodeTriList(raw: any): any {
+   const lines = raw.toString().split('\n');
+   return lines.map((line: string) => {
+      if (!line) return null;
+      const ix = line.indexOf(' ');
+      if (ix < 0) return null;
+      const id = parseInt(line.substring(0, ix), 10);
+      const data = line.substring(ix+1);
+      return [id, data];
+   }).filter((x: any) => !!x);
+}
+
 async function mergeIndexLine(targetP: string, line: string) {
    if (!line) return;
    let ix = line.indexOf(' ');
    if (ix < 0) return;
    const id = parseInt(line.substring(0, ix), 10);
+   if (!env.cache) env.cache = new FileCache(
+      FILE_CACHE, encodeTriList, decodeTriList
+   );
+
+   const cached = await env.cache.Get(targetP);
+   if (cached) {
+      const idix = binsearchNear(cached, id);
+      const nearId = cached[idix][0];
+      if (nearId > id) {
+         cached.splice(idix, 0, [id, line.substring(ix+1)]);
+      } else {
+         // should not nearId === id
+         cached.splice(idix+1, 0, [id, line.substring(ix+1)]);
+      }
+      await env.cache.Put(targetP, cached, line.length);
+      return;
+   }
+
+   // if file too large, use slow process
    const target_P = targetP + '_';
    const targetF = new LineReader(targetP);
    const targetFd = await FsOpen(target_P, 'w+');
@@ -212,6 +254,22 @@ async function mergeIndexLine(targetP: string, line: string) {
 
 async function removeIndexLine(targetP: string, id: number) {
    if (!(await FsExists(targetP))) return;
+   if (!env.cache) env.cache = new FileCache(
+      FILE_CACHE, encodeTriList, decodeTriList
+   );
+
+   const cached = await env.cache.Get(targetP);
+   if (cached) {
+      const ix = binsearchNear(cached, id);
+      if (cached[ix][0] === id) {
+         const delta = `${id} `.length + cached[ix][1].length;
+         cached.splice(ix, 1);
+         await env.cache.Put(targetP, cached, -delta);
+      }
+      return;
+   }
+
+   // if index file too large; use slow process
    const target_P = targetP + '_';
    const targetF = new LineReader(targetP);
    const targetFd = await FsOpen(target_P, 'w+');
@@ -235,4 +293,25 @@ async function removeIndexLine(targetP: string, id: number) {
    } else {
       await FsRm_up(targetP)
    }
+}
+
+function binsearchNear(list: any, x: any): number {
+   if (!list || !list.length) return 0;
+   let a = 0, b = list.length-1;
+   while (a < b) {
+      const m = ~~((b+a)/2);
+      const v = list[m][0];
+      if (v === x) return m;
+      if (v > x) {
+         b = m-1;
+      } else {
+         a = m+1;
+      }
+   }
+   return a;
+}
+
+export async function PostProjectLv(metaRoot: string): Promise<any> {
+   if (env.cache) await env.cache.Clean();
+   delete env.cache;
 }
