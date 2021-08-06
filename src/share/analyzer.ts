@@ -58,40 +58,40 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
       // out: { p: path, m: mtime }
       const queue = ['/'];
       const outNewFd = await FsOpen(iPath.join(outDir, '_new'), 'w+');
-      while (queue.length) {
-         const item = queue.shift();
-         const path = iPath.join(srcRoot, item);
-         try {
-            const list = (await FsReaddir(path)).sort(
-               (a: string, b: string) => {
-                  if (a < b) {
-                     return -1;
-                  } else if (a > b) {
-                     return 1;
-                  }
-                  return 0;
-               }
-            );
-            for (let i = 0, n = list.length; i < n; i++) {
-               const name = list[i];
-               const subpath = iPath.join(path, name);
-               const next = subpath.substring(srcRoot.length);
-               // TODO: try...catch...
-               const stat = await FsStat(subpath);
-               if (stat.isDirectory()) {
-                  if (IGNORE_DIRS.includes(name)) continue;
-                  queue.push(next + iPath.sep);
-               } else {
-                  await FsWrite(outNewFd, Buffer.from(JSON.stringify({
-                     p: next, m: stat.mtimeMs
-                  }) + '\n'));
-               }
-            }
-         } catch (err: any) {
-            // TODO: handle error
-         }
-      }
+      await scanDfs(srcRoot, outNewFd);
       await FsClose(outNewFd);
+   }
+
+   async function scanDfs(path: string, outFd: number): Promise<any> {
+      try {
+         const list = (await FsReaddir(path)).sort(
+            (a: string, b: string) => {
+               if (a < b) {
+                  return -1;
+               } else if (a > b) {
+                  return 1;
+               }
+               return 0;
+            }
+         );
+         for (let i = 0, n = list.length; i < n; i++) {
+            const name = list[i];
+            const subpath = iPath.join(path, name);
+            const next = subpath.substring(srcRoot.length);
+            // TODO: try...catch...
+            const stat = await FsStat(subpath);
+            if (stat.isDirectory()) {
+               if (IGNORE_DIRS.includes(name)) continue;
+               await scanDfs(subpath, outFd);
+            } else {
+               await FsWrite(outFd, Buffer.from(JSON.stringify({
+                  p: next, m: stat.mtimeMs
+               }) + '\n'));
+            }
+         }
+      } catch(err: any) {
+         throw err;
+      }
    }
 
    async function detectChanges(): Promise<any> {
