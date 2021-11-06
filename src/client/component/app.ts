@@ -250,7 +250,7 @@ class BodyConnector {
                   if (!obj.path.endsWith('/')) {
                      that.onView(obj.path).then(() => {
                         that.editorGotoLine(obj.L);
-                     });
+                     }, () => { /* TODO: error */ });
                   }
                }
             } else if (obj.path.startsWith('?')) {
@@ -340,6 +340,16 @@ class BodyConnector {
             that.editor.Render(obj.data);
          }
       }, (err: any) => {
+         const notification = document.createElement('span');
+         if (err === 404) {
+            notification.className = 'item item-red';
+            notification.appendChild(document.createTextNode('Not Found'));
+            that.components.view.ui.view.appendChild(notification);
+         } else {
+            notification.className = 'item item-red';
+            notification.appendChild(document.createTextNode('Internal Error'));
+            that.components.view.ui.view.appendChild(notification);
+         }
       });
       return req;
    }

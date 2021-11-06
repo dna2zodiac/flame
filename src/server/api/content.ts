@@ -17,14 +17,22 @@ export const api = {
       } else {
          const project = parts.shift();
          const path = parts.join('/') || '/';
-         if (path.endsWith('/')) {
-            iUtil.rJson(res, await localfs.GetDirectoryContent(
-               project, path
-            ));
-         } else {
-            iUtil.rJson(res, await localfs.GetFileContent(
-               project, path
-            ));
+         try {
+            if (path.endsWith('/')) {
+               iUtil.rJson(res, await localfs.GetDirectoryContent(
+                  project, path
+               ));
+            } else {
+               iUtil.rJson(res, await localfs.GetFileContent(
+                  project, path
+               ));
+            }
+         } catch (err) {
+            if (err && err.message === 'invalid path') {
+               iUtil.e404(res);
+            } else {
+               iUtil.e500(res);
+            }
          }
       }
    }
