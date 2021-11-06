@@ -14,6 +14,7 @@ const iPath = require('path');
 const ANALYSIS_PLUGINS: any[] = [
    /* { Inc, Dec, Post }
       Inc = (obj, metaRoot)
+      Mod = (obj, metaRoot)
       Dec = (obj, metaRoot)
       Post = (metaRoot)
     */
@@ -217,8 +218,7 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
          const path = iPath.join(srcRoot, obj.p);
          switch (obj.a) {
             case 'u':
-               await removeFileItem(obj);
-               await analyzeFileItem(obj);
+               await updateFileItem(obj);
                break;
             case 'd':
                await removeFileItem(obj);
@@ -255,10 +255,10 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
 
    async function analyzeFileItem(obj: any): Promise<any> {
       const path = iPath.join(srcRoot, obj.p);
-      // const outHashDir = getMetaDirname(obj.h_);
+      const outHashDir = getMetaDirname(obj.h_);
       const isBinary = await isBinaryFile(path);
       console.log('analyze:', obj.p, isBinary);
-      // await FsMkdir(outHashDir);
+      await FsMkdir(outHashDir);
       for (let i = 0, n = ANALYSIS_PLUGINS.length; i < n; i++) {
          const IncFn = ANALYSIS_PLUGINS[i].Inc;
          IncFn && await IncFn(Object.assign({
@@ -267,15 +267,39 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
       }
    }
 
+   async function updateFileItem(obj: any): Promise<any> {
+      const path = iPath.join(srcRoot, obj.p);
+      const outHashDir = getMetaDirname(obj.h);
+      const isBinary = await isBinaryFile(path);
+      console.log('update:', obj.p);
+      if (await FsExists(outHashDir)) {
+         for (let i = 0, n = ANALYSIS_PLUGINS.length; i < n; i++) {
+            const IncFn = ANALYSIS_PLUGINS[i].Inc;
+            const ModFn = ANALYSIS_PLUGINS[i].Mod;
+            const DecFn = ANALYSIS_PLUGINS[i].Dec;
+            if (ModFn) {
+               await ModFn(Object.assign({
+                  p_: path, b: isBinary
+               }, obj), outDir);
+            } else {
+               IncFn && await IncFn(Object.assign({
+                  p_: path, b: isBinary
+               }, obj), outDir);
+               DecFn && await DecFn(Object.assign({ p_: path }, obj), outDir);
+            }
+         }
+      }
+   }
+
    async function removeFileItem(obj: any): Promise<any> {
       const path = iPath.join(srcRoot, obj.p);
-      // const outHashDir = getMetaDirname(obj.h);
+      const outHashDir = getMetaDirname(obj.h);
       console.log('remove:', obj.p);
-      // if (await FsExists(outHashDir)) {
+      if (await FsExists(outHashDir)) {
          for (let i = 0, n = ANALYSIS_PLUGINS.length; i < n; i++) {
             const DecFn = ANALYSIS_PLUGINS[i].Dec;
             DecFn && await DecFn(Object.assign({ p_: path }, obj), outDir);
          }
-      // }
+      }
    }
 }
