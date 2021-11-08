@@ -30,6 +30,32 @@ export class LocalFSContentProvider implements IContentProvider {
       return obj;
    }
 
+   async GetMetaData(project: string, path: string, rev: string = null): Promise<any> {
+      if (!project) throw new Error('no project');
+      if (!path || path.endsWith('/')) throw new Error('invalid path');
+      const realPath = iPath.join(
+         this.baseDir, project, ...path.split('/')
+      );
+      const metadataPath = iPath.join(
+         this.baseDir, project, '.flame', ...path.split('/')
+      ) + '.flame';
+      if (!(await iUtil.fileOp.exist(realPath))) {
+         throw new Error('invalid path');
+      }
+      const obj: any = {};
+      if (!(await iUtil.fileOp.exist(metadataPath))) {
+         return obj;
+      }
+      const stat = await iUtil.fileOp.stat(realPath);
+      if (stat.isDirectory()) {
+         throw new Error('not supported yet');
+      }
+      const blob = Object.assign(
+         obj, JSON.parse(await iUtil.fileOp.read(metadataPath))
+      );
+      return obj;
+   }
+
    async GetProjectList(): Promise<any> {
       const list = await this.getDirectoryItems(this.baseDir, false);
       return list.filter(

@@ -1,4 +1,5 @@
 const i_fs = require('fs');
+const i_url = require('url');
 
 const api = {
    readRequestBinary: async (req) => {
@@ -51,6 +52,28 @@ const api = {
    e500: (res, text) => {
       res.writeHead(500, text || 'Internal Error');
       res.end();
+   },
+   parseUrl: (url) => {
+      const urlObj = i_url.parse(url);
+      const queryObj = {};
+      urlObj.query && urlObj.query.split('&').forEach((kv) => {
+         const i = kv.indexOf('=');
+         if (i < 0) {
+            const key = decodeURIComponent(kv);
+            const val = '';
+            queryObj[key] = val;
+         } else {
+            const key = decodeURIComponent(
+               kv.substring(0, i)
+            );
+            const val = decodeURIComponent(
+               kv.substring(i+1)
+            );
+            queryObj[key] = val;
+         }
+      });
+      urlObj.query = queryObj;
+      return urlObj;
    },
    fileOp: {
       exist: async (path) => {

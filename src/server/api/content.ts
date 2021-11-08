@@ -10,6 +10,7 @@ export const api = {
    get: async (req: any, res: any, opt: any) => {
       // TODO: error handler
       const parts: string[] = opt.path;
+      const urlObj = iUtil.parseUrl(req.url);
       if (!parts.length) {
          iUtil.rJson(res, await localfs.GetProjectList());
       } else if (parts.length === 1 && !parts[0]) {
@@ -18,7 +19,11 @@ export const api = {
          const project = parts.shift();
          const path = parts.join('/') || '/';
          try {
-            if (path.endsWith('/')) {
+            if ('meta' in urlObj.query) {
+               iUtil.rJson(res, await localfs.GetMetaData(
+                  project, path
+               ));
+            } else if (path.endsWith('/')) {
                iUtil.rJson(res, await localfs.GetDirectoryContent(
                   project, path
                ));
