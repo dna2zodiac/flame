@@ -210,6 +210,9 @@ export const styleObjects = {
       left: '0px',
       'background-color': 'white',
    },
+   '.editor-linenumber': {
+      'margin-left': '5px',
+   },
    '.editor-linenumber > a': {
       cursor: 'pointer',
       display: 'inline-block',
