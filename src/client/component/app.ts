@@ -247,6 +247,12 @@ class BodyConnector {
                   if (that.editor) that.editor.Dispose();
                   ElemEmpty(view.ui.view);
                   that.breadcrumbSetTo(obj.path);
+                  const pathparts = obj.path.split('/');
+                  const path_basename = pathparts.pop();
+                  pathparts.shift();
+                  const path_project = pathparts.shift();
+                  const path_dirname = pathparts.join('/');
+                  document.title = `Flame - ${path_basename} @ ${path_project}:/${path_dirname}`;
                   if (!obj.path.endsWith('/')) {
                      that.onView(obj.path).then(() => {
                         that.editorGotoLine(obj.L);
@@ -258,6 +264,7 @@ class BodyConnector {
                //       so that we can show file content meanwhile show query results
                //       e.g. #/path/to/file#Q=test
                const query = decodeURIComponent(obj.path.substring(1));
+               document.title = `Flame - Search: ${query}`;
                that.onSearch(query);
             }
          }
