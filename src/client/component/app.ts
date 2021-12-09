@@ -4,6 +4,7 @@ import {ElemEmpty, ElemFlash} from '../logic/util';
 import {DataClient} from '../logic/api';
 import {SideNavSearcherTab} from './sidenav/searcher';
 import {SideNavBrowserTab} from './sidenav/browser';
+import {SideNavBookmarkTab} from './sidenav/bookmark';
 import {SideNavAnalyzerTab} from './sidenav/analyzer';
 import {SideNavTeamTab} from './sidenav/team';
 import {SideNavSettingsTab} from './sidenav/settings';
@@ -66,6 +67,7 @@ class AppIconNav {
       btn: [
          new AppIconButton('Search', 'img/search.svg'),
          new AppIconButton('Browse', 'img/folder.svg'),
+         new AppIconButton('Bookmark', 'img/bookmark.svg'),
          new AppIconButton('Analysis', 'img/clipboard.svg'),
          new AppIconButton('Team', 'img/talk-bubbles.svg'),
          new AppIconButton('Settings', 'img/cog.svg')
@@ -106,6 +108,7 @@ class AppSideNav {
       tab: {
          Search: new SideNavSearcherTab(),
          Browse: new SideNavBrowserTab(),
+         Bookmark: new SideNavBookmarkTab(),
          Analysis: new SideNavAnalyzerTab(),
          Team: new SideNavTeamTab(),
          Settings: new SideNavSettingsTab()
