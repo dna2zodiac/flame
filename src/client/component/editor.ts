@@ -1,4 +1,12 @@
 import {ElemEmpty, ElemAppendText} from '../logic/util';
+import {StyleMap} from '../style/style';
+
+interface SyntaxItem {
+   L: number;    // line number
+   st: number;
+   ed: number;   // line offset for start and end position
+   name?: string; // symbol name, flame-editor-<name> is corresponding css
+}
 
 export class SourceCodeViewer {
    opt: any = {};
@@ -36,6 +44,67 @@ export class SourceCodeViewer {
       }
    }
 
+   RenderSyntax(syntaxMap: SyntaxItem[]) {
+      // syntaxMap [ { L, st, ed, name } ... ]
+      // e.g. [ { L: 1, st: 1, ed: 5, name: "comment" } ]
+      // "this is a test" -> <span>
+      //                        <span class="flame-editor-comment">this</span>
+      //                        <span> is a test</span>
+      //                     </span>
+      ElemEmpty(this.ui.lineNumber);
+      ElemEmpty(this.ui.text);
+
+      const syntaxMapByLine: any = {};
+      syntaxMap.forEach((item: any) => {
+         if (!syntaxMapByLine[item.L]) syntaxMapByLine[item.L] = [];
+         syntaxMapByLine[item.L].push(item);
+      });
+      this.lines.forEach((line: string, i: number) => {
+         if (i > 0) {
+            this.ui.lineNumber.appendChild(document.createElement('br'));
+            this.ui.text.appendChild(document.createElement('br'));
+         }
+         const a = document.createElement('a');
+         ElemAppendText(a, '' + (i+1));
+         this.ui.lineNumber.append(a);
+
+         const span = document.createElement('span');
+         const syntax = syntaxMapByLine[i];
+         if (!syntax || syntax.length === 0) {
+            ElemAppendText(span, line);
+         } else {
+            // XXX: we do not consider overlap now
+            syntax.sort((a: any, b: any) => a.st - b.st);
+            const seq: any = []; // [{name, len}, ...]
+            let offset: number = 1;
+            for (let j = 0; j < syntax.length; j++) {
+               const symbol = syntax[j];
+               if (symbol.st > offset) {
+                  seq.push({ len: symbol.st - offset });
+               }
+               seq.push({ name: symbol.name, len: symbol.ed - symbol.st });
+               offset = symbol.ed;
+            }
+            if (offset < line.length) {
+               seq.push({ len: line.length - offset });
+            }
+
+            offset = 0;
+            for (let j = 0; j < seq.length; j++) {
+               const symbol = seq[j];
+               const subspan = document.createElement('span');
+               ElemAppendText(subspan, line.substring(offset, offset + symbol.len));
+               offset += symbol.len;
+               if (symbol.name) {
+                  subspan.classList.add(`flame-editor-${symbol.name}`);
+               }
+               span.appendChild(subspan);
+            }
+         }
+         this.ui.text.appendChild(span);
+      });
+   }
+
    Render(text: string) {
       this.lines = text.split('\n');
       this.ui.self.className = 'full';
@@ -43,20 +112,9 @@ export class SourceCodeViewer {
       ElemEmpty(this.ui.lineNumber);
       ElemEmpty(this.ui.text);
       if (this.lines.length) {
-         this.lines.forEach((line: string, i: number) => {
-            if (i > 0) {
-               this.ui.lineNumber.appendChild(document.createElement('br'));
-               this.ui.text.appendChild(document.createElement('br'));
-            }
-            const a = document.createElement('a');
-            ElemAppendText(a, '' + (i+1));
-            this.ui.lineNumber.append(a);
-            const span = document.createElement('span');
-            ElemAppendText(span, line);
-            this.ui.text.appendChild(span);
-         });
+         this.RenderSyntax([]);
       } else {
-         // TODO: no conent
+         // TODO: no content
          // TODO: loading
       }
       const sideFlex = document.createElement('div');
@@ -112,6 +170,16 @@ export class SourceCodeViewer {
    }
 
    BindMetadata (metadata: any) {
+      // TODO: it is a function to highlight line number block
+      //       when there are symbols, comments or linkages in
+      //       a line, the name `BindMetadata` is confusing
+      /*
+         metadata = {
+            symbol:  [{linenumber}, ...],
+            comment: [{linenumber}, ...],
+            linkage: [{linenumber}, ...]
+         }
+      */
       const n = this.ui.lineNumber.children.length;
       for (let i = 0; i < n; i += 2) {
          const el = this.ui.lineNumber.children[i];
