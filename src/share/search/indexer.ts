@@ -1,4 +1,4 @@
-import {BasicTextParser} from '../lang/common';
+import {BasicTextParser} from '../parser/common';
 
 export function GenInMemWordIndex(text: string, opt: any): any {
    // index = { token: count }
