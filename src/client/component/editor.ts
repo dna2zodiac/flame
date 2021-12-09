@@ -88,7 +88,7 @@ export class SourceCodeViewer {
             // XXX: we do not consider overlap now
             syntax.sort((a: any, b: any) => a.st - b.st);
             const seq: any = []; // [{name, len}, ...]
-            let offset: number = 1;
+            let offset: number = 0;
             for (let j = 0; j < syntax.length; j++) {
                const symbol = syntax[j];
                if (symbol.st > offset) {
