@@ -46,3 +46,19 @@ export function SetTheme(theme: string) {
       document.head.appendChild(STYLE);
    }
 }
+
+export class StyleMap {
+   self: HTMLElement;
+
+   constructor() {
+      this.self = document.createElement('style');
+   }
+
+   GetDom() {
+      return this.self;
+   }
+
+   Compile(style: any) {
+      this.self.innerHTML = compileStyleObjects(style);
+   }
+}

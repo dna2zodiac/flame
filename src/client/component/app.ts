@@ -214,6 +214,7 @@ class BodyConnector {
       stab.ui.box.query.addEventListener('keypress', onPressEnterForSearch);
       stab.ui.box.search.addEventListener('click', onClickSearch);
       onHashChange();
+      return this;
 
       function onPressEnterForSearch(evt: any) {
          if (evt.key !== 'Enter') return;
@@ -430,11 +431,18 @@ export class AppFrame {
       this.ui.self.appendChild(this.buildFoot());
       document.body.appendChild(this.ui.self);
 
-      new BodyConnector().Bind(
+      const bodyConnector = new BodyConnector().Bind(
          this.ui.nav.icon,
          this.ui.nav.side,
          this.ui.view
       );
+
+      // TODO: do we need to disable it in prod env?
+      const flameDebug: any = {};
+      flameDebug.body = bodyConnector;
+      flameDebug.frame = this;
+      const windowAny: any = <any>window;
+      windowAny.flameDebug = flameDebug;
    }
 
    GetDom() { return this.ui.self; }

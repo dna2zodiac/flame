@@ -13,6 +13,7 @@ export class SourceCodeViewer {
    lines: string[] = [];
    ui = {
       self: document.createElement('div'),
+      style: new StyleMap(),
       container: document.createElement('div'),
       leftSide: document.createElement('div'),
       lineNumber: document.createElement('div'),
@@ -44,9 +45,20 @@ export class SourceCodeViewer {
       }
    }
 
+   SetStyle(styleMap: any) {
+      this.ui.style.Compile(styleMap);
+      const styleDom = this.ui.style.GetDom();
+      if (!styleDom.parentNode) {
+         this.ui.self.insertBefore(
+            styleDom,
+            this.ui.self.children[0]
+         );
+      }
+   }
+
    RenderSyntax(syntaxMap: SyntaxItem[]) {
       // syntaxMap [ { L, st, ed, name } ... ]
-      // e.g. [ { L: 1, st: 1, ed: 5, name: "comment" } ]
+      // e.g. [ { L: 0, st: 0, ed: 4, name: "comment" } ]
       // "this is a test" -> <span>
       //                        <span class="flame-editor-comment">this</span>
       //                        <span> is a test</span>
