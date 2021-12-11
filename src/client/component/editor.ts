@@ -269,9 +269,8 @@ export class SourceCodeViewer {
             }
          }
       }
-      const div = document.createElement('div');
-      div.style.display = 'none';
       if (sted[0] < 0) return;
+      const div = document.createElement('div');
       const hL = (<HTMLElement>this.ui.lineNumber.children[0]).offsetHeight;
       div.style.width = this.cache.maxLineWidth + 'px';
       const top = (sted[0] - 1) * hL, bottom = (sted[1] - 1) * hL;

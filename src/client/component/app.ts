@@ -283,8 +283,9 @@ class BodyConnector {
       if (!this.editor.LineHighlight) return;
       const hashL = new HashL(lineMark);
       this.editor.ScrollToLine(...hashL.GetRange());
-      hashL.GetRaw().forEach((ab: number[], i: number) => {
-         this.editor.LineHighlight(ab[0], ab[1], i > 0);
+      this.editor.LineHighlight(-1, -1);
+      hashL.GetRaw().forEach((ab: number[]) => {
+         this.editor.LineHighlight(ab[0], ab[1], true);
       });
    }
 
@@ -363,8 +364,11 @@ class BodyConnector {
                         hashL.AddRange(linenumber, linenumber+1);
                      }
                   } else {
+                     const ab = hashL.GetRange();
                      hashL.Reset();
-                     hashL.AddRange(linenumber, linenumber+1);
+                     if (!ab || ab[0] !== linenumber || ab[1] !== linenumber+1) {
+                        hashL.AddRange(linenumber, linenumber+1);
+                     }
                   }
                   const lnstr = hashL.GetLstr();
                   window.location.hash = that.buildHash({ L: lnstr || null });
