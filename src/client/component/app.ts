@@ -1,6 +1,7 @@
 import {Env} from '../logic/global';
+import {HashL} from '../logic/hash';
 import {BreadCrumb} from './breadcrumb';
-import {ElemEmpty, ElemFlash} from '../logic/util';
+import {ElemEmpty, ElemFlash, GetOS} from '../logic/util';
 import {DataClient} from '../logic/api';
 import {SideNavSearcherTab} from './sidenav/searcher';
 import {SideNavBrowserTab} from './sidenav/browser';
@@ -280,11 +281,11 @@ class BodyConnector {
       if (!this.editor) return;
       if (!this.editor.ScrollToLine) return;
       if (!this.editor.LineHighlight) return;
-      const parts = (lineMark || '0').split('-');
-      const st = parseInt(parts[0], 10);
-      const ed = parts[1]?parseInt(parts[1], 10):0;
-      this.editor.ScrollToLine(st, ed);
-      this.editor.LineHighlight(st, ed);
+      const hashL = new HashL(lineMark);
+      this.editor.ScrollToLine(...hashL.GetRange());
+      hashL.GetRaw().forEach((ab: number[], i: number) => {
+         this.editor.LineHighlight(ab[0], ab[1], i > 0);
+      });
    }
 
    browserTabExpandTo(path: string) {
@@ -337,14 +338,36 @@ class BodyConnector {
             // TODO: render not support file view
          } else {
             that.editor = new SourceCodeViewer({
-               onClickLineNumber: (linenumber: number) => {
+               onClickLineNumber: (linenumber: number, keyOn: any) => {
                   const hash = that.parseHash();
-                  const lnstr = '' + linenumber;
-                  if (hash.L === lnstr) {
-                     window.location.hash = that.buildHash({ L: null });
+                  const hashL = new HashL(hash.L);
+                  const ctrlOn = GetOS() === 'darwin'?keyOn.meta:keyOn.ctrl
+                  if (ctrlOn) {
+                     if (hashL.CheckCross(linenumber, linenumber+1)) {
+                        hashL.DelRange(linenumber, linenumber+1);
+                     } else {
+                        hashL.AddRange(linenumber, linenumber+1);
+                     }
+                  } else if (keyOn.shift) {
+                     const ab = hashL.GetRange();
+                     if (ab) {
+                        if (linenumber < ab[0]) {
+                           hashL.AddRange(linenumber, ab[0]);
+                        } else if (linenumber >= ab[1]) {
+                           hashL.AddRange(ab[1], linenumber+1);
+                        } else {
+                           hashL.AddRange(ab[0], linenumber+1);
+                        }
+                     } else {
+                        hashL.Reset();
+                        hashL.AddRange(linenumber, linenumber+1);
+                     }
                   } else {
-                     window.location.hash = that.buildHash({ L: lnstr });
+                     hashL.Reset();
+                     hashL.AddRange(linenumber, linenumber+1);
                   }
+                  const lnstr = hashL.GetLstr();
+                  window.location.hash = that.buildHash({ L: lnstr || null });
                }
             });
             that.components.view.ui.view.appendChild(that.editor.GetDom());

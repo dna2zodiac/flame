@@ -212,6 +212,7 @@ export const styleObjects = {
    },
    '.editor-linenumber': {
       'margin-left': '5px',
+      'user-select': 'none',
    },
    '.editor-linenumber > a': {
       cursor: 'pointer',

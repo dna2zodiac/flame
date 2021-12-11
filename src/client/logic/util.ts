@@ -224,3 +224,17 @@ export function Ajax(opt: AjaxRequestOpt): AjaxRequest {
    });
    return new AjaxRequest(xhr, req);
 }
+
+const OS_WIN = ['Win32', 'Win64', 'Windows', 'WinCE'];
+const OS_IOS = ['iPhone', 'iPad', 'iPod'];
+const OS_MAC = ['Macintosh', 'MacIntel', 'MacPPC', 'Mac68K'];
+export function GetOS(): string {
+   // BlackBerry, Opera, SunOS, Linux .*, ...
+   const platform = window.navigator.platform;
+   if (OS_IOS.includes(platform)) return 'ios';
+   if (OS_MAC.includes(platform)) return 'darwin';
+   if (OS_WIN.includes(platform)) return 'windows';
+   if (/Android/.test(window.navigator.userAgent)) return 'android';
+   if (/Linux/.test(platform)) return 'linux';
+   return 'unknown';
+}

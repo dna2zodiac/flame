@@ -22,7 +22,7 @@ export class SourceCodeViewer {
       highlight: document.createElement('div'),
       extra: {
          highlight: {
-            line: document.createElement('div')
+            line: <HTMLDivElement[]>[]
          }
       }
    };
@@ -152,10 +152,16 @@ export class SourceCodeViewer {
       this.events.onClickLineNumber = (evt: any) => {
          if (evt.target.tagName.toLowerCase() !== 'a') return;
          const linenumber = parseInt(evt.target.textContent, 10);
+         const keyOn = {
+            ctrl: evt.ctrlKey,
+            shift: evt.shiftKey,
+            alt: evt.altKey,
+            meta: evt.metaKey,
+         };
          if (linenumber <= 0) return;
          if (linenumber > that.lines.length) return;
          if (that.opt.onClickLineNumber) {
-            that.opt.onClickLineNumber(linenumber);
+            that.opt.onClickLineNumber(linenumber, keyOn);
          }
       };
       this.ui.lineNumber.addEventListener(
@@ -248,11 +254,22 @@ export class SourceCodeViewer {
       return r;
    }
 
-   LineHighlight (startLineNumber: number, endLineNumber: number) {
+   LineHighlight (startLineNumber: number, endLineNumber: number, appendMode: boolean = false) {
+      // if appendMode is true, create a new div
+      // otherwise remove all previous divs and then use a new one for highlight
       const sted = this.checkStartEndLineNumber(
          startLineNumber, endLineNumber
       );
-      const div = this.ui.extra.highlight.line;
+      const divs = this.ui.extra.highlight.line;
+      if (!appendMode) {
+         while (divs.length) {
+            const one = divs.pop();
+            if (one.parentElement) {
+               one.parentElement.removeChild(one);
+            }
+         }
+      }
+      const div = document.createElement('div');
       div.style.display = 'none';
       if (sted[0] < 0) return;
       const hL = (<HTMLElement>this.ui.lineNumber.children[0]).offsetHeight;
@@ -264,6 +281,7 @@ export class SourceCodeViewer {
       div.style.left = '0px';
       div.style.display = 'block';
       this.ui.highlight.appendChild(div);
+      divs.push(div);
    }
 
    ScrollToLine (startLineNumber: number, endLineNumber: number) {
@@ -272,7 +290,6 @@ export class SourceCodeViewer {
       );
       if (sted[0] < 0) return;
       const n = this.lines.length;
-      this.ui.extra.highlight.line.style.display = 'none';
 
       const hL = (<HTMLElement>this.ui.lineNumber.children[0]).offsetHeight;
       const curTop = this.ui.container.scrollTop;
@@ -286,6 +303,7 @@ export class SourceCodeViewer {
          if (y > top) y = top;
          this.ui.container.scrollTo(x, y);
       }
+      // this.ui.extra.highlight.line.style.display = 'none';
       // this.LineHighlight(startLineNumber, endLineNumber);
    }
 }
