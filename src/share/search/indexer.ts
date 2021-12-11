@@ -1,4 +1,4 @@
-import {BasicTextParser} from '../parser/common';
+import {BasicTextParser} from '../../lazac/common';
 
 export function GenInMemWordIndex(text: string, opt: any): any {
    // index = { token: count }
