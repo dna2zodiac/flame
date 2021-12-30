@@ -7,7 +7,8 @@ Source Code Comprehension Toolkits (SCCT)
 SELF=$(cd `dirname $0`/..; pwd)
 
 cd $SELF
-./node_modules/.bin/webpack
+npm install
+bash $SELF/script/build.sh
 
 FLAME_STATIC_DIR=$SELF/dist/static \
 FLAME_LOCALFS_BASEDIR=/path/to/source/code/root \

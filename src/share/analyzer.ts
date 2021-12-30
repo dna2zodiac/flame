@@ -32,6 +32,7 @@ const ANALYSIS_PLUGINS: any[] = [
    },*/
    {
       Inc: printerPlugin.IncFileLv,
+      Mod: printerPlugin.ModFileLv,
       Dec: printerPlugin.DecFileLv,
    },
 ];
@@ -258,7 +259,8 @@ export function AnalyzeProject(srcRoot: string, outDir: string, opt: any): any {
       const outHashDir = getMetaDirname(obj.h_);
       const isBinary = await isBinaryFile(path);
       console.log('analyze:', obj.p, isBinary);
-      await FsMkdir(outHashDir);
+      // XXX: rethink about how to organzie folder structure
+      // await FsMkdir(outHashDir);
       for (let i = 0, n = ANALYSIS_PLUGINS.length; i < n; i++) {
          const IncFn = ANALYSIS_PLUGINS[i].Inc;
          IncFn && await IncFn(Object.assign({

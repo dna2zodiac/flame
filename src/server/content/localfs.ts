@@ -88,14 +88,12 @@ export class LocalFSContentProvider implements IContentProvider {
       const stat = await iUtil.fileOp.stat(realPath);
       if (!stat.isDirectory()) throw new Error('invalid path');
       const list = await this.readDir(realPath, false);
-      if (combine) {
-      }
       for (let i = 0, n = list.length; i < n; i ++){
          let name = list[i];
          if (!name.endsWith('/')) continue;
          let rp = iPath.join(realPath, name);
          let r = await this.readDir(rp, true);
-         while (r.length === 1 && r[0].endsWith('/')) {
+         while (combine && r.length === 1 && r[0].endsWith('/')) {
             rp = iPath.join(rp, r[0]);
             name += r[0];
             r = await this.readDir(rp, true);

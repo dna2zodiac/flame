@@ -5,6 +5,10 @@ export async function IncFileLv(obj: any, metaRoot: string) {
    console.log(obj, metaRoot);
 }
 
+export async function ModFileLv(obj: any, metaRoot: string) {
+   console.log(obj, metaRoot);
+}
+
 export async function DecFileLv(obj: any, metaRoot: string) {
    console.log(obj, metaRoot);
 }
