@@ -15,9 +15,11 @@ export class LocalFSContentProvider implements IContentProvider {
    async GetFileContent(project: string, path: string, rev: string = null): Promise<any> {
       if (!project) throw new Error('no project');
       if (!path || path.endsWith('/')) throw new Error('invalid path');
-      const realPath = iPath.join(
-         this.baseDir, project, ...path.split('/')
-      );
+      const basePath = await iUtil.fileOp.realpath(iPath.join(this.baseDir, project));
+      const realPath = await iUtil.fileOp.realpath(iPath.join(basePath, ...path.split('/')));
+      if (!realPath.startsWith(basePath)) {
+         throw new Error('invalid path');
+      }
       if (!(await iUtil.fileOp.exist(realPath))) {
          throw new Error('invalid path');
       }
@@ -69,9 +71,11 @@ export class LocalFSContentProvider implements IContentProvider {
    async GetDirectoryContent(project: string, path: string, rev: string = null): Promise<any> {
       if (!project) throw new Error('no project');
       if (!path || !path.endsWith('/')) throw new Error('invalid path');
-      const realPath = iPath.join(
-         this.baseDir, project, ...path.split('/')
-      );
+      const basePath = await iUtil.fileOp.realpath(iPath.join(this.baseDir, project));
+      const realPath = await iUtil.fileOp.realpath(iPath.join(basePath, ...path.split('/')));
+      if (!realPath.startsWith(basePath)) {
+         throw new Error('invalid path');
+      }
       const list = await this.getDirectoryItems(realPath);
       // TODO: filter special folder like .git, ...
       return list.map((name: string) => ({ name }));
@@ -105,7 +109,9 @@ export class LocalFSContentProvider implements IContentProvider {
       const r: string[] = [];
       for (let i = 0, n = list.length; i < n; i ++){
          const name = list[i];
-         const rp = iPath.join(realPath, name);
+         // NB: here we do not check if real path escape from base
+         //     should guarantee in GetDirectoryContent
+         const rp = await iUtil.fileOp.realpath(iPath.join(realPath, name));
          const st = await iUtil.fileOp.stat(rp).catch(
             (err: any) => {}
          );
@@ -121,7 +127,7 @@ export class LocalFSContentProvider implements IContentProvider {
             // combine: /com/java/package/A.java
             //          |----------------| -> as one item
             // if readdir get 2 items, cannot combine
-            if (r.length > 1) return r;
+            if (r.length !== 1) return r;
             // if readdir get first file item, cannot combine
             if (!r[0].endsWith('/')) return r;
          }

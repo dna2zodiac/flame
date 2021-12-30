@@ -101,6 +101,14 @@ const api = {
             });
          });
       },
+      realpath: async (path) => {
+         return new Promise((r, e) => {
+            i_fs.realpath(path, (err, rpath) => {
+               if (err) return e(err);
+               r(rpath);
+            });
+         });
+      },
       mkdir: async (path) => {
          return new Promise((r, e) => {
             i_fs.mkdir(path, { recursive: true }, (err) => {
