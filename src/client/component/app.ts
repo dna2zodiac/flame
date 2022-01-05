@@ -68,9 +68,9 @@ class AppIconNav {
       btn: [
          new AppIconButton('Search', 'img/search.svg'),
          new AppIconButton('Browse', 'img/folder.svg'),
-         new AppIconButton('Bookmark', 'img/bookmark.svg'),
          new AppIconButton('Analysis', 'img/clipboard.svg'),
          new AppIconButton('Team', 'img/talk-bubbles.svg'),
+         new AppIconButton('Bookmark', 'img/bookmark.svg'),
          new AppIconButton('Settings', 'img/cog.svg')
       ]
    };
@@ -109,9 +109,9 @@ class AppSideNav {
       tab: {
          Search: new SideNavSearcherTab(),
          Browse: new SideNavBrowserTab(),
-         Bookmark: new SideNavBookmarkTab(),
          Analysis: new SideNavAnalyzerTab(),
          Team: new SideNavTeamTab(),
+         Bookmark: new SideNavBookmarkTab(),
          Settings: new SideNavSettingsTab()
       }
    };
