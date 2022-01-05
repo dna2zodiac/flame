@@ -1,4 +1,4 @@
-import {IContentProvider} from './interface';
+import {IContentProvider, ISearchProvider} from './interface';
 import {IGNORE_DIRS} from '../../share/env';
 
 const iUtil = require('../framework/util');
@@ -35,12 +35,19 @@ export class LocalFSContentProvider implements IContentProvider {
    async GetMetaData(project: string, path: string, rev: string = null): Promise<any> {
       if (!project) throw new Error('no project');
       if (!path || path.endsWith('/')) throw new Error('invalid path');
-      const realPath = iPath.join(
-         this.baseDir, project, ...path.split('/')
+      const projectPath = iPath.resolve(
+         iPath.join(this.baseDir, project)
       );
-      const metadataPath = iPath.join(
+      const realPath = iPath.resolve(
+         iPath.join(projectPath, ...path.split('/'))
+      );
+      if (!realPath.startsWith(projectPath + iPath.sep)) {
+         throw new Error('invalid path');
+      }
+      const metadataPath = iPath.resolve(iPath.join(
          this.baseDir, project, '.flame', ...path.split('/')
-      ) + '.flame';
+      ) + '.flame');
+      // TODO: metadataPath escape check
       if (!(await iUtil.fileOp.exist(realPath))) {
          throw new Error('invalid path');
       }
@@ -129,6 +136,103 @@ export class LocalFSContentProvider implements IContentProvider {
             // if readdir get first file item, cannot combine
             if (!r[0].endsWith('/')) return r;
          }
+      }
+      return r;
+   }
+}
+
+export class LocalFSSearchProvider implements ISearchProvider {
+   content: IContentProvider;
+
+   constructor(content: IContentProvider) {
+      this.content = content;
+   }
+
+   async SearchProject (query: string, options: any): Promise<any> {
+      const r = {
+         type: 'project',
+         items: <any[]>[],
+      };
+      try {
+         const regexp = new RegExp(query);
+         r.items = await this.content.GetProjectList();
+         r.items = r.items.filter((item: any) => regexp.test(item.name));
+      } catch(_) { }
+      r.items = r.items.map((item: any) => item.name).slice(0, 100);
+      return r;
+   }
+
+   async SearchFile (query: string, options: any): Promise<any> {
+      const r = {
+         type: 'file',
+         items: <any[]>[],
+      };
+      try { new RegExp(query); } catch(_) { return r; }
+      const regexp = new RegExp(query);
+      const queue: any[] = (
+         await this.content.GetProjectList()
+      ).map((item: any) => ({
+         project: item.name.substring(0, item.name.length-1),
+         path: '/'
+      }));
+      searchloop:
+      while (queue.length) {
+         const cur = queue.shift();
+         const scope = await this.content.GetDirectoryContent(cur.project, cur.path, null);
+         const order: any[] = [];
+         for (let i = 0, n = scope.length; i < n; i++) {
+            const item = scope[i];
+            const path = cur.path + item.name;
+            if (item.name.endsWith('/')) {
+               order.unshift({ project: cur.project, path: path });
+            }
+            if (regexp.test(path)) r.items.push({ project: cur.project, path: path });
+            if (r.items.length >= 100) break searchloop;
+         }
+         order.forEach((item: any) => queue.unshift(item));
+      }
+      return r;
+   }
+
+   async SearchContent (query: string, options: any): Promise<any> {
+      const r = {
+         type: 'content',
+         items: <any[]>[],
+      };
+      try { new RegExp(query); } catch(_) { return r; }
+      const regexp = new RegExp(query);
+      const queue: any[] = (
+         await this.content.GetProjectList()
+      ).map((item: any) => ({
+         project: item.name.substring(0, item.name.length-1),
+         path: '/'
+      }));
+      searchloop:
+      while (queue.length) {
+         const cur = queue.shift();
+         const scope = await this.content.GetDirectoryContent(cur.project, cur.path, null);
+         const order: any[] = [];
+         for (let i = 0, n = scope.length; i < n; i++) {
+            const item = scope[i];
+            const path = cur.path + item.name;
+            if (item.name.endsWith('/')) {
+               order.unshift({ project: cur.project, path: path });
+               continue;
+            }
+            const obj = await this.content.GetFileContent(cur.project, path, null);
+            if (obj.binary) continue;
+            const lines = obj.data.split('\n');
+            for (let i = 0, n = lines.length; i < n; i++) {
+               const line = lines[i];
+               if (!regexp.test(line)) continue;
+               r.items.push({
+                  project: cur.project, path: path,
+                  line: i+1, content: line
+               });
+               if (r.items.length >= 100) break searchloop;
+            }
+         }
+         order.forEach((item: any) => queue.unshift(item));
       }
       return r;
    }

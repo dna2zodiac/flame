@@ -1,9 +1,15 @@
-import {LocalFSContentProvider} from '../content/localfs';
+import {
+   LocalFSContentProvider,
+   LocalFSSearchProvider
+} from '../content/localfs';
 
 const iUtil = require('../framework/util');
 
 const localfs = new LocalFSContentProvider(
    process.env.FLAME_LOCALFS_BASEDIR || '/tmp'
+);
+const localfs_searcher = new LocalFSSearchProvider(
+   localfs
 );
 
 export const api = {
@@ -40,5 +46,26 @@ export const api = {
             }
          }
       }
-   }
+   }, // get
+   search: async (req: any, res: any, opt: any) => {
+      // TODO: error handler
+      const urlObj = iUtil.parseUrl(req.url);
+      const query = urlObj.query.q;
+      if (!query) {
+         return iUtil.e400(res);
+      }
+      try {
+         const srProject = await localfs_searcher.SearchProject(query, null);
+         const srFile = await localfs_searcher.SearchFile(query, null);
+         const srContent = await localfs_searcher.SearchContent(query, null);
+         const r = {
+            project: srProject,
+            file: srFile,
+            content: srContent,
+         };
+         iUtil.rJson(res, r);
+      } catch(_) {
+         iUtil.e500(res);
+      }
+   }, // search
 };
