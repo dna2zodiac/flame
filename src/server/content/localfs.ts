@@ -149,6 +149,7 @@ export class LocalFSSearchProvider implements ISearchProvider {
    }
 
    async SearchProject (query: string, options: any): Promise<any> {
+      options = options || {};
       const r = {
          type: 'project',
          items: <any[]>[],
@@ -163,6 +164,7 @@ export class LocalFSSearchProvider implements ISearchProvider {
    }
 
    async SearchFile (query: string, options: any): Promise<any> {
+      options = options || {};
       const r = {
          type: 'file',
          items: <any[]>[],
@@ -175,11 +177,10 @@ export class LocalFSSearchProvider implements ISearchProvider {
          project: item.name.substring(0, item.name.length-1),
          path: '/'
       }));
-      searchloop:
-      while (queue.length) {
+      while (queue.length && options.canceled) {
          const cur = queue.shift();
          if (regexp.test(cur.path)) r.items.push({ project: cur.project, path: cur.path });
-         if (r.items.length >= 100) break searchloop;
+         if (r.items.length >= 100) break;
          if (!cur.path.endsWith('/')) {
             continue;
          }
@@ -195,6 +196,7 @@ export class LocalFSSearchProvider implements ISearchProvider {
    }
 
    async SearchContent (query: string, options: any): Promise<any> {
+      options = options || {};
       const r = {
          type: 'content',
          items: <any[]>[],
@@ -208,7 +210,7 @@ export class LocalFSSearchProvider implements ISearchProvider {
          path: '/'
       }));
       searchloop:
-      while (queue.length) {
+      while (queue.length && !options.canceled) {
          const cur = queue.shift();
          if (!cur.path.endsWith('/')) {
             const obj = await this.content.GetFileContent(cur.project, cur.path, null);

@@ -54,26 +54,30 @@ export const api = {
       if (!query) {
          return iUtil.e400(res);
       }
+      const options = { canceled: false };
+      req.on('close', () => {
+         options.canceled = true;
+      });
       try {
-         const srProject = await localfs_searcher.SearchProject(query, null);
-         const srFile = await localfs_searcher.SearchFile(query, null);
-         const srContent = await localfs_searcher.SearchContent(query, null);
+         const srProject = options.canceled?null:(await localfs_searcher.SearchProject(query, options));
+         const srFile = options.canceled?null:(await localfs_searcher.SearchFile(query, options));
+         const srContent = options.canceled?null:(await localfs_searcher.SearchContent(query, options));
          const r = {
             matchRegexp: query,
             items: <any[]>[],
          };
-         srProject.items.forEach((name: any) => {
+         srProject && srProject.items.forEach((name: any) => {
             r.items.push({
                path: '/' + name, matches: []
             });
          });
-         srFile.items.forEach((item: any) => {
+         srFile && srFile.items.forEach((item: any) => {
             r.items.push({
                path: '/' + item.project + item.path,
                matches: [],
             });
          });
-         srContent.items.forEach((item: any) => {
+         srContent && srContent.items.forEach((item: any) => {
             const last = r.items[r.items.length - 1];
             const path = '/' + item.project + item.path;
             if (last && last.path === path) {
