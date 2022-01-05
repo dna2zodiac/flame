@@ -185,7 +185,7 @@ export const DataClient = {
          }, null);
       }, // GetMetadata
       Search: (query: string, n: number = 50) => {
-         const items: any = [];
+         /*const items: any = [];
          items.push({
             path: '/test1/README.md',
             matches: [
@@ -202,7 +202,12 @@ export const DataClient = {
          return FakeAjax(null, {
             matchRegexp: '[Tt]his is',
             items: items
-         }, null);
+         }, null);*/
+         return Ajax({
+            url: '/api/content/search?q=' + encodeURIComponent(query),
+            method: 'GET',
+            return: 'json'
+         });
       }, // Search
    }, // Project
    Topic: {

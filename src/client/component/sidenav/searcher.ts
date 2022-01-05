@@ -39,7 +39,10 @@ export class SearchItem {
       this.ui.self.className = 'item-thin item-blue search-item';
       ElemAppendText(this.ui.link, this.item.path);
       this.ui.link.href = '#' + this.item.path;
-      if (!this.item.matches || !this.item.matches.length) return;
+      if (!this.item.matches || !this.item.matches.length) {
+         this.ui.self.appendChild(this.ui.link);
+         return;
+      }
       this.ui.match.className = 'item-thin item-purple full-w scrollable editor-font';
       ElemEmpty(this.ui.match);
       const lineno = document.createElement('div');

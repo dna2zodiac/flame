@@ -178,16 +178,16 @@ export class LocalFSSearchProvider implements ISearchProvider {
       searchloop:
       while (queue.length) {
          const cur = queue.shift();
+         if (regexp.test(cur.path)) r.items.push({ project: cur.project, path: cur.path });
+         if (r.items.length >= 100) break searchloop;
+         if (!cur.path.endsWith('/')) {
+            continue;
+         }
          const scope = await this.content.GetDirectoryContent(cur.project, cur.path, null);
          const order: any[] = [];
          for (let i = 0, n = scope.length; i < n; i++) {
             const item = scope[i];
-            const path = cur.path + item.name;
-            if (item.name.endsWith('/')) {
-               order.unshift({ project: cur.project, path: path });
-            }
-            if (regexp.test(path)) r.items.push({ project: cur.project, path: path });
-            if (r.items.length >= 100) break searchloop;
+            order.unshift({ project: cur.project, path: cur.path + item.name });
          }
          order.forEach((item: any) => queue.unshift(item));
       }
@@ -210,27 +210,27 @@ export class LocalFSSearchProvider implements ISearchProvider {
       searchloop:
       while (queue.length) {
          const cur = queue.shift();
-         const scope = await this.content.GetDirectoryContent(cur.project, cur.path, null);
-         const order: any[] = [];
-         for (let i = 0, n = scope.length; i < n; i++) {
-            const item = scope[i];
-            const path = cur.path + item.name;
-            if (item.name.endsWith('/')) {
-               order.unshift({ project: cur.project, path: path });
-               continue;
-            }
-            const obj = await this.content.GetFileContent(cur.project, path, null);
+         if (!cur.path.endsWith('/')) {
+            const obj = await this.content.GetFileContent(cur.project, cur.path, null);
             if (obj.binary) continue;
             const lines = obj.data.split('\n');
             for (let i = 0, n = lines.length; i < n; i++) {
                const line = lines[i];
                if (!regexp.test(line)) continue;
                r.items.push({
-                  project: cur.project, path: path,
+                  project: cur.project, path: cur.path,
                   line: i+1, content: line
                });
                if (r.items.length >= 100) break searchloop;
             }
+            continue;
+         }
+         const scope = await this.content.GetDirectoryContent(cur.project, cur.path, null);
+         const order: any[] = [];
+         for (let i = 0, n = scope.length; i < n; i++) {
+            const item = scope[i];
+            const path = cur.path + item.name;
+            order.unshift({ project: cur.project, path: path });
          }
          order.forEach((item: any) => queue.unshift(item));
       }

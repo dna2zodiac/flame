@@ -59,10 +59,36 @@ export const api = {
          const srFile = await localfs_searcher.SearchFile(query, null);
          const srContent = await localfs_searcher.SearchContent(query, null);
          const r = {
-            project: srProject,
-            file: srFile,
-            content: srContent,
+            matchRegexp: query,
+            items: <any[]>[],
          };
+         srProject.items.forEach((name: any) => {
+            r.items.push({
+               path: '/' + name, matches: []
+            });
+         });
+         srFile.items.forEach((item: any) => {
+            r.items.push({
+               path: '/' + item.project + item.path,
+               matches: [],
+            });
+         });
+         srContent.items.forEach((item: any) => {
+            const last = r.items[r.items.length - 1];
+            const path = '/' + item.project + item.path;
+            if (last && last.path === path) {
+               last.matches.push({
+                  L: item.line, T: item.content,
+               });
+            } else {
+               r.items.push({
+                  path: '/' + item.project + item.path,
+                  matches: [{
+                     L: item.line, T: item.content,
+                  }],
+               });
+            }
+         });
          iUtil.rJson(res, r);
       } catch(_) {
          iUtil.e500(res);
