@@ -376,6 +376,16 @@ class BodyConnector {
             });
             that.components.view.ui.view.appendChild(that.editor.GetDom());
             that.editor.Render(obj.data);
+            /* TODO: hgih light syntax example for cpp file
+            Env.worker.Call('cpp.test', { cmd: 'cpp', text: obj.data }).then((res: any) => {
+               // console.log('cpp.test', res);
+               that.editor.SetStyle({
+                  '.flame-editor-string': { color: '#32598b' },
+                  '.flame-editor-comment': { color: 'green' },
+               });
+               that.editor.RenderSyntax(res.tokens);
+            });
+            */
          }
       }, (err: any) => {
          const notification = document.createElement('span');

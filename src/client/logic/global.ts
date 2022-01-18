@@ -1,5 +1,26 @@
 import {TaskRunner} from '../../share/task';
 
+export function LoadScript(path: string): Promise<any> {
+   return new Promise((r: any, e: any) => {
+      const script = document.createElement('script');
+      script.src = path;
+      script.addEventListener('load', _load);
+      script.addEventListener('error', _error);
+      document.body.appendChild(script);
+
+      function _load(evt: any) {
+         evt.target.removeEventListener('load', _load);
+         evt.target.removeEventListener('error', _error);
+         r(script);
+      }
+      function _error(evt: any) {
+         evt.target.removeEventListener('load', _load);
+         evt.target.removeEventListener('error', _error);
+         e();
+      }
+   });
+}
+
 class TaskWorker {
    path: string;
    worker: any;
@@ -21,11 +42,18 @@ class TaskWorker {
          if (!(<any>window).Flame.Worker) (<any>window).Flame.Worker = <any>{};
          const name: string = this.path.split('/').pop().split('.').shift();
          (<any>window).Flame.Worker[name] = <any>{};
-         const script = document.createElement('script');
-         script.src = path;
-         document.body.appendChild(script);
-         this.worker = script;
+         LoadScript(path).then((scriptDom) => {
+            this.worker = scriptDom;
+         }, () => {});
          this.sync = true;
+         // patch importScripts if worker not available
+         (<any>window).importScripts = LoadScript;
+      }
+
+      const that = this;
+      function _load(evt: any) {
+         evt.target.removeEventListener('load', _load);
+         that.ready = true;
       }
    }
 

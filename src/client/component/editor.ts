@@ -1,12 +1,6 @@
 import {ElemEmpty, ElemAppendText} from '../logic/util';
 import {StyleMap} from '../style/style';
-
-interface SyntaxItem {
-   L: number;    // line number
-   st: number;
-   ed: number;   // line offset for start and end position
-   name?: string; // symbol name, flame-editor-<name> is corresponding css
-}
+import {SyntaxItem} from '../../share/common';
 
 export class SourceCodeViewer {
    opt: any = {};
