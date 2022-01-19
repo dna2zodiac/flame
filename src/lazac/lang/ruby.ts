@@ -1,4 +1,3 @@
-import {SyntaxItem} from '../../share/common';
 import {
    STOPS,
    TAG_STRING,
@@ -13,7 +12,6 @@ import {
    ExtractString,
    ExtractComment,
    ExtractTokens,
-   ConvertTokenToSyntaxItem,
 } from '../extractor';
 
 const ruby_extract_feature = {
@@ -283,7 +281,7 @@ export class RubyParser {
    constructor() {
    }
 
-   Tokenize(text: string, opt: any): SyntaxItem[] {
+   Tokenize(text: string, opt: any): Token[] {
       // L, st, ed, name
       const env: ParseEnv = {
          curI: 0,
@@ -291,7 +289,7 @@ export class RubyParser {
          tokens: <Token[]>[],
       };
       ExtractTokens(env, ruby_extract_feature);
-      return ConvertTokenToSyntaxItem(env.tokens);
+      return env.tokens;
    }
 }
 

@@ -1,11 +1,9 @@
-import {SyntaxItem} from '../../share/common';
 import {
    Token,
    ParseEnv,
    ExtractString,
    ExtractComment,
    ExtractTokens,
-   ConvertTokenToSyntaxItem,
 } from '../extractor';
 
 const python_extract_feature = {
@@ -50,7 +48,7 @@ export class PythonParser {
    constructor() {
    }
 
-   Tokenize(text: string, opt: any): SyntaxItem[] {
+   Tokenize(text: string, opt: any): Token[] {
       // L, st, ed, name
       const env: ParseEnv = {
          curI: 0,
@@ -58,7 +56,7 @@ export class PythonParser {
          tokens: <Token[]>[],
       };
       ExtractTokens(env, python_extract_feature);
-      return ConvertTokenToSyntaxItem(env.tokens);
+      return env.tokens;
    }
 }
 

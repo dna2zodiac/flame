@@ -1,4 +1,3 @@
-import {SyntaxItem} from '../../share/common';
 import {
    Token,
    ParseEnv,
@@ -7,7 +6,6 @@ import {
    ExtractRegex,
    ExtractTokens,
    ExtractTokensFeatureGenerator,
-   ConvertTokenToSyntaxItem,
 } from '../extractor';
 
 const js_extract_feature = {
@@ -24,7 +22,7 @@ function extract_string(env: ParseEnv) {
 
 function extract_raw_string(env: ParseEnv) {
    // TODO: do not support complex ${...}
-   // e.g. "${"'" + value + "'"}"
+   // e.g. `${value + `test ${value}` + /test/.test("test") /* nested comment */ }`
    return ExtractString(env, '`', '`', '\\');
 }
 
@@ -67,7 +65,7 @@ export class JavascriptParser {
    constructor() {
    }
 
-   Tokenize(text: string, opt: any): SyntaxItem[] {
+   Tokenize(text: string, opt: any): Token[] {
       // L, st, ed, name
       const env: ParseEnv = {
          curI: 0,
@@ -76,7 +74,7 @@ export class JavascriptParser {
       };
       ExtractTokens(env, js_extract_feature);
       // TODO: merge $ and var name like $name
-      return ConvertTokenToSyntaxItem(env.tokens);
+      return env.tokens;
    }
 }
 

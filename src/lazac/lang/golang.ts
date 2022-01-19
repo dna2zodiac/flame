@@ -1,11 +1,9 @@
-import {SyntaxItem} from '../../share/common';
 import {
    Token,
    ParseEnv,
    ExtractString,
    ExtractComment,
    ExtractTokens,
-   ConvertTokenToSyntaxItem,
 } from '../extractor';
 
 const go_extract_feature = {
@@ -48,7 +46,7 @@ export class GolangParser {
    constructor() {
    }
 
-   Tokenize(text: string, opt: any): SyntaxItem[] {
+   Tokenize(text: string, opt: any): Token[] {
       // L, st, ed, name
       const env: ParseEnv = {
          curI: 0,
@@ -56,7 +54,7 @@ export class GolangParser {
          tokens: <Token[]>[],
       };
       ExtractTokens(env, go_extract_feature);
-      return ConvertTokenToSyntaxItem(env.tokens);
+      return env.tokens;
    }
 }
 

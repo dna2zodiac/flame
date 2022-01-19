@@ -1,11 +1,9 @@
-import {SyntaxItem} from '../../share/common';
 import {
    Token,
    ParseEnv,
    ExtractString,
    ExtractComment,
    ExtractTokens,
-   ConvertTokenToSyntaxItem,
 } from '../extractor';
 
 const cpp_extract_feature = {
@@ -63,7 +61,7 @@ export class CppParser {
    constructor() {
    }
 
-   Tokenize(text: string, opt: any): SyntaxItem[] {
+   Tokenize(text: string, opt: any): Token[] {
       // L, st, ed, name
       const env: ParseEnv = {
          curI: 0,
@@ -71,7 +69,7 @@ export class CppParser {
          tokens: <Token[]>[],
       };
       ExtractTokens(env, cpp_extract_feature);
-      return ConvertTokenToSyntaxItem(env.tokens);
+      return env.tokens;
    }
 }
 

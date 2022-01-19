@@ -1,4 +1,10 @@
-'use strict';
+import {SyntaxItem} from '../../share/common';
+import {Token} from '../../lazac/extractor';
+import {
+   TAG_STRING,
+   TAG_COMMENT,
+   TAG_REGEX,
+} from '../../lazac/common';
 
 const env = <any>{
    c: false,
@@ -59,8 +65,57 @@ function parseLang(lang: string, klass: string, obj: any, res: any): Promise<any
 
    function _act() {
       const parser = new (<any>self)[klass]();
-      const tokens = parser.Tokenize(obj.text).filter((x: any) => !!x.name);
+      const tokens = ConvertTokenToSyntaxItem(
+         parser.Tokenize(obj.text)
+      ).filter(
+         (x: SyntaxItem) => !!x.name
+      );
       res.tokens = tokens;
       return res;
    }
+}
+
+function ConvertTokenToSyntaxItem(tokens: Token[]) : SyntaxItem[] {
+   const rs: SyntaxItem[] = [];
+   let L = 0, col = 0;
+   for (let i = 0, n = tokens.length; i < n; i++) {
+      const token = tokens[i];
+      const T = token.tag === TAG_COMMENT? token.data:token.T;
+      const multipleLines = (
+         token.tag === TAG_STRING ||
+         token.tag === TAG_REGEX ||
+         token.tag === TAG_COMMENT
+      );
+      if (multipleLines) {
+         // "abc\ -> "abc\\\ndef"
+         // def"           ^^--- new line
+         const lines = T.split('\n');
+         const n = lines.length - 1;
+         lines.forEach((line: string) => {
+            rs.push({
+               L: L,
+               st: col,
+               ed: col + line.length,
+               name: token.tag,
+            });
+            L ++;
+            col += line.length;
+            if (n) col = 0;
+         });
+         L --;
+      } else {
+         rs.push({
+            L: L,
+            st: col,
+            ed: col + T.length,
+            name: null,
+         });
+         col += T.length;
+         if (T === '\n') {
+            L ++;
+            col = 0;
+         }
+      }
+   }
+   return rs;
 }

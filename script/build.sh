@@ -6,7 +6,7 @@ SELF=$(cd `dirname $0`/..; pwd)
 
 rm -rf $SELF/dist
 cd $SELF
-./node_modules/.bin/webpack
+time ./node_modules/.bin/webpack
 
 echo copy static files ...
 cp src/client/index.html dist/static/
