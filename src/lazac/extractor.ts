@@ -209,32 +209,23 @@ export function ConvertTokenToSyntaxItem(tokens: Token[]) : SyntaxItem[] {
    let L = 0, col = 0;
    for (let i = 0, n = tokens.length; i < n; i++) {
       const token = tokens[i];
-      if (token.tag === TAG_COMMENT) {
-         const lines = token.data.split('\n');
-         const n = lines.length;
+      const T = token.tag === TAG_COMMENT? token.data:token.T;
+      const multipleLines = (
+         token.tag === TAG_STRING ||
+         token.tag === TAG_REGEX ||
+         token.tag === TAG_COMMENT
+      );
+      if (multipleLines) {
+         // "abc\ -> "abc\\\ndef"
+         // def"           ^^--- new line
+         const lines = T.split('\n');
+         const n = lines.length - 1;
          lines.forEach((line: string) => {
             rs.push({
                L: L,
                st: col,
                ed: col + line.length,
-               name: TAG_COMMENT,
-            });
-            L ++;
-            col += line.length;
-            if (n) col = 0;
-         });
-         L --;
-      } else if (token.tag === TAG_STRING) {
-         // "abc\ -> "abc\\\ndef"
-         // def"           ^^--- new line
-         const lines = token.T.split('\n');
-         const n = lines.length;
-         lines.forEach((line) => {
-            rs.push({
-               L: L,
-               st: col,
-               ed: col + line.length,
-               name: TAG_STRING,
+               name: token.tag,
             });
             L ++;
             col += line.length;
@@ -245,11 +236,11 @@ export function ConvertTokenToSyntaxItem(tokens: Token[]) : SyntaxItem[] {
          rs.push({
             L: L,
             st: col,
-            ed: col + token.T.length,
+            ed: col + T.length,
             name: null,
          });
-         col += token.T.length;
-         if (token.T === '\n') {
+         col += T.length;
+         if (T === '\n') {
             L ++;
             col = 0;
          }

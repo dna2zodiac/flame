@@ -376,16 +376,42 @@ class BodyConnector {
             });
             that.components.view.ui.view.appendChild(that.editor.GetDom());
             that.editor.Render(obj.data);
-            /* TODO: hgih light syntax example for cpp file
-            Env.worker.Call('cpp.test', { cmd: 'cpp', text: obj.data }).then((res: any) => {
-               // console.log('cpp.test', res);
-               that.editor.SetStyle({
-                  '.flame-editor-string': { color: '#32598b' },
-                  '.flame-editor-comment': { color: 'green' },
+
+            // TODO: async here; if load multiple files in a short time,
+            //       it may be messy; need cancelable action
+            let cmd: string;
+            switch(that.extName(path)) {
+            case '.c': case '.h':
+               cmd = 'c'; break;
+            case '.cc': case '.hh': case '.cpp': case '.hpp':
+               cmd = 'cpp'; break;
+            case '.java':
+               cmd = 'java'; break;
+            case '.py':
+               cmd = 'python'; break;
+            case '.go':
+               cmd = 'golang'; break;
+            case '.js': case '.ts':
+               cmd = 'javascript'; break;
+            case '.cs':
+               cmd = 'csharp'; break;
+            case '.rb':
+               cmd = 'ruby'; break;
+            }
+            if (cmd) {
+               Env.worker.Call(
+                  'editor.highlight',
+                  { cmd: cmd, text: obj.data }
+               ).then((res: any) => {
+                  console.log(res.id, res);
+                  that.editor.SetStyle({
+                     '.flame-editor-string': { color: '#32598b' },
+                     '.flame-editor-comment': { color: 'green' },
+                     '.flame-editor-regex': { color: '#8b3263' },
+                  });
+                  that.editor.RenderSyntax(res.tokens);
                });
-               that.editor.RenderSyntax(res.tokens);
-            });
-            */
+            }
          }
       }, (err: any) => {
          const notification = document.createElement('span');
@@ -444,6 +470,16 @@ class BodyConnector {
          );
       });
       return hash;
+   }
+
+   extName(path: string, n: number = 1): string {
+      if (!path) return '';
+      const parts = path.split('.');
+      if (parts.length === 1) return '';
+      let ed = parts.length;
+      let st = parts.length - n;
+      if (st < 1) st = 1;
+      return '.' + parts.slice(st, ed).join('.');
    }
 }
 

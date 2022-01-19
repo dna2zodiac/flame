@@ -91,7 +91,14 @@ function getNodeJs(path, outname) {
 module.exports = [
    getWebJs('./src/client/index.ts', 'index.js'),
    getWebJs('./src/client/worker/lang.ts', 'lang-worker.js'),
+   getWebJs('./src/lazac/lang/c.ts', 'lazac/lang/c.js'),
    getWebJs('./src/lazac/lang/cpp.ts', 'lazac/lang/cpp.js'),
+   getWebJs('./src/lazac/lang/java.ts', 'lazac/lang/java.js'),
+   getWebJs('./src/lazac/lang/python.ts', 'lazac/lang/python.js'),
+   getWebJs('./src/lazac/lang/javascript.ts', 'lazac/lang/javascript.js'),
+   getWebJs('./src/lazac/lang/golang.ts', 'lazac/lang/golang.js'),
+   getWebJs('./src/lazac/lang/csharp.ts', 'lazac/lang/csharp.js'),
+   getWebJs('./src/lazac/lang/ruby.ts', 'lazac/lang/ruby.js'),
    getNodeJs('./src/server/index.ts', 'index.js'),
    getNodeJs('./src/script/analyze.ts', 'script/analyze.js')
 ];
