@@ -5,10 +5,10 @@ import {
    TAG_REGEX,
    IsSpace,
    SearchPrev,
+   ParseEnv,
+   Token,
 } from '../common';
 import {
-   Token,
-   ParseEnv,
    ExtractString,
    ExtractComment,
    ExtractTokens,

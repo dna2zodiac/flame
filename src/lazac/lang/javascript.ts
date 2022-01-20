@@ -1,6 +1,5 @@
+import { ParseEnv, Token } from '../common';
 import {
-   Token,
-   ParseEnv,
    ExtractString,
    ExtractComment,
    ExtractRegex,

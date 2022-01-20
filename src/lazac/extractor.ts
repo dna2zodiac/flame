@@ -1,29 +1,13 @@
-import {SyntaxItem} from '../share/common';
 import {
    STOPS,
    TAG_STRING,
    TAG_COMMENT,
    TAG_REGEX,
    IsSpace,
-   SearchNext,
    SearchPrev,
+   ParseEnv,
+   Token,
 } from './common';
-
-/* env = { text, cursor, tokens, ... } */
-
-export interface ParseEnv {
-   text: string;
-   curI: number;
-   tokens: Token[];
-}
-
-export interface Token {
-   T: string;
-   startIndex?: number;
-   endIndex?: number;
-   tag?: string;
-   data?: any;
-}
 
 export function ExtractSymbol(env: ParseEnv): Token {
    let st = env.curI, ed = st;

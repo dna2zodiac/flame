@@ -53,7 +53,7 @@ export const TAG_FUNCTION = 'function';
 export const TAG_CLASS = 'class'; // class, interface, enum, struct
 export const TAG_MODULE = 'module'; // namespace
 export const TAG_KEYWORD = 'keyword';
-export const TAG_BRACKET = {
+export const TAG_BRACKET = <any>{
    '{': '{}', '}': '{}',
    '(': '()', ')': '()',
    '[': '[]', ']': '[]',
@@ -63,12 +63,27 @@ export const TAG_BRACKET = {
 // '' -> TAG_COMMENT
 const space = ['', ' ', '\t'];
 const spacen = ['', ' ', '\t', '\r', '\n'];
-const bracket = {
+/*const bracket = {
    left: ['(', '{', '['],
    right: [')', '}', ']'],
    full_left: ['(', '{', '[', '<'],
    full_right: [')', '}', ']', '>'],
-};
+};*/
+
+/* env = { text, curI, tokens, ... } */
+export interface ParseEnv {
+   text: string;
+   curI: number;
+   tokens: Token[];
+}
+
+export interface Token {
+   T: string;
+   startIndex?: number;
+   endIndex?: number;
+   tag?: string;
+   data?: any;
+}
 
 export function IsSpace(ch: string): boolean {
    return space.indexOf(ch) >= 0;

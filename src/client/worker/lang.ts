@@ -1,9 +1,9 @@
 import {SyntaxItem} from '../../share/common';
-import {Token} from '../../lazac/extractor';
 import {
    TAG_STRING,
    TAG_COMMENT,
    TAG_REGEX,
+   Token,
 } from '../../lazac/common';
 
 const env = <any>{
