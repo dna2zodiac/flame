@@ -1,9 +1,20 @@
-import { ParseEnv, Token } from '../common';
+import {
+   ParseEnv,
+   Token,
+   TokenDecoration,
+   SearchNextSkipSpace,
+   SearchNextStop,
+   SearchNextSkipSpacen,
+} from '../common';
 import {
    ExtractString,
    ExtractComment,
    ExtractTokens,
 } from '../extractor';
+import {
+   TokensString,
+   DecorateScope,
+} from '../decorator';
 
 const c_extract_feature = {
    '"': [extract_string],
@@ -42,6 +53,52 @@ const c_keywords = [
    '#define', '#undef', '#line', 'defined', '#include',
 ];
 
+const c_decorate_feature = {
+   '#': [decorate_include],
+};
+
+function decorate_include(env: ParseEnv) {
+   let p = SearchNextSkipSpace(env.tokens, env.curI+1);
+   let token = env.tokens[p];
+   if (!token) return 0;
+   if (token.T !== 'include') return 0;
+   const decoToken = env.tokens[env.curI];
+   const deco = <TokenDecoration>{
+      tag: '#include',
+      st: env.curI,
+      ed: -1,
+      data: [0, 0, null]
+   };
+   // NOTES: compile error: #include < stdio.h >
+   //        compile pass:  #include /* can we */ <stdio.h>
+   p = SearchNextSkipSpace(env.tokens, p+1);
+   // NOTES: compile error: #include <a>b.h> should be "a>b.h"
+   token = env.tokens[p];
+   if (!token) return 0;
+   while (token.T === '\\') {
+      // must be \\\n
+      p = SearchNextSkipSpacen(env.tokens, p+1);
+      token = env.tokens[p];
+      if (!token) return 0;
+   }
+   if (token.T === '<') {
+      let ist = p;
+      p = SearchNextStop(env.tokens, p+1, ['>']);
+      token = env.tokens[p];
+      if (!token) return 0;
+      deco.data[2] = TokensString(env, ist, p+1);
+      deco.data[0] = ist;
+   } else {
+      // token.tag === TAG_STRING
+      deco.data[2] = token.T;
+      deco.data[0] = p;
+   }
+   deco.ed = p + 1;
+   deco.data[1] = deco.ed;
+   decoToken.deco = deco;
+   return deco.ed - deco.st;
+}
+
 export class CParser {
    constructor() {
    }
@@ -54,6 +111,8 @@ export class CParser {
          tokens: <Token[]>[],
       };
       ExtractTokens(env, c_extract_feature);
+      env.curI = 0;
+      DecorateScope(env, c_decorate_feature);
       return env.tokens;
    }
 }

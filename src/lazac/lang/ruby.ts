@@ -277,6 +277,9 @@ const ruby_keywords = [
    'undef', 'unless', 'until', 'when', 'while', 'yield',
 ];
 
+// TODO: decorate require 'test_library.rb'
+//                require 'test_' + name + '.rb'
+
 export class RubyParser {
    constructor() {
    }

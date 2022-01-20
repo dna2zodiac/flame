@@ -60,6 +60,11 @@ const javascript_keywords = [
    'null', 'true', 'false',
 ];
 
+// TODO: decorate require('test')
+//                require('test' + name)
+//                import {name_list} from 'test'
+//                import * as name from 'test'
+
 export class JavascriptParser {
    constructor() {
    }

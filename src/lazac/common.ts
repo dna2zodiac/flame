@@ -77,11 +77,22 @@ export interface ParseEnv {
    tokens: Token[];
 }
 
+export interface TokenDecoration {
+   tag?: string;
+   // st = startIndex
+   st?: number;
+   // ed = endIndex
+   ed?: number;
+   data?: any;
+}
+
 export interface Token {
    T: string;
    startIndex?: number;
    endIndex?: number;
    tag?: string;
+   // for decoration obj
+   deco?: TokenDecoration;
    data?: any;
 }
 

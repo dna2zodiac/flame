@@ -1,4 +1,11 @@
-import { ParseEnv, Token } from '../common';
+import {
+   ParseEnv,
+   SearchNext,
+   SearchNextSkipSpace,
+   Token,
+   TokenDecoration
+} from '../common';
+import { DecorateScope } from '../decorator';
 import {
    ExtractString,
    ExtractComment,
@@ -39,6 +46,42 @@ const java_keywords = [
    '@interface',
 ];
 
+const java_decorate_feature = {
+   'import': [decorate_import],
+};
+
+function decorate_import(env: ParseEnv) {
+   const st = env.curI;
+   const start_token = env.tokens[st];
+   let name_st = SearchNextSkipSpace(env.tokens, st+1);
+   let x = env.tokens[name_st];
+   const deco = <TokenDecoration>{
+      st: env.curI,
+      ed: -1,
+      tag: 'import',
+      data: {
+         static: false,
+         import: null,
+         basename: null,
+      },
+   };
+   if (x.T === 'static') {
+      deco.data.static = true;
+      name_st = SearchNextSkipSpace(env.tokens, name_st+1);
+   }
+   let ed = SearchNext(
+      env.tokens, name_st,
+      (x: Token) => x.T !== ';' && x.T !== '\n'
+   );
+   deco.data.import = [st, ed];
+   // NOTES: import a.b.c.d
+   //        import a.b.c.*
+   deco.data.basename = [name_st, ed];
+   deco.ed = ed;
+   start_token.deco = deco;
+   return ed - st + 1;
+}
+
 export class JavaParser {
    constructor() {
    }
@@ -51,6 +94,8 @@ export class JavaParser {
          tokens: <Token[]>[],
       };
       ExtractTokens(env, java_extract_feature);
+      env.curI = 0;
+      DecorateScope(env, java_decorate_feature);
       return env.tokens;
    }
 }

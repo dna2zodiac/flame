@@ -1,4 +1,12 @@
-import { ParseEnv, Token } from '../common';
+import {
+   ParseEnv,
+   SearchNext,
+   SearchNextSkipSpacen,
+   SearchPrevSkipSpacen,
+   Token,
+   TokenDecoration
+} from '../common';
+import { DecorateScope } from '../decorator';
 import {
    ExtractString,
    ExtractComment,
@@ -52,6 +60,57 @@ const csharp_keywords = [
    '#region', '#endregion', '#pragma',
 ];
 
+const csharp_decorate_feature = {
+   'using': [decorate_import],
+   // 'DllImport': [decorate_dll_import], // e.g. [DllImport("User32.dll")]
+};
+
+function decorate_import(env: ParseEnv) {
+   // TODO: check not using block
+   //       e.g. using (Font font1 = new Font("Arial", 10.0f))
+   // https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/using-directive
+   let st = env.curI, ed = st;
+   let using_token = env.tokens[st];
+   ed = SearchNextSkipSpacen(env.tokens, ed+1);
+   let token = env.tokens[ed];
+   if (!token) return 0;
+   let is_static = false;
+   if (token.T === 'static') {
+      is_static = true;
+      ed = SearchNextSkipSpacen(env.tokens, ed+1);
+      token = env.tokens[ed];
+   }
+   let name = [ed, ed];
+   let alias = null;
+   ed = SearchNext(
+      env.tokens, ed+1,
+      (x: Token) => x.T !== '=' && x.T !== ';'
+   );
+   token = env.tokens[ed];
+   name[1] = SearchPrevSkipSpacen(env.tokens, ed-1)+1;
+   if (!token) return 0;
+   if (token.T === '=') {
+      ed = SearchNextSkipSpacen(env.tokens, ed+1);
+      alias = [ed, ed];
+      ed = SearchNext(env.tokens, ed+1, (x: Token) => x.T !== ';');
+      token = env.tokens[ed];
+      if (!token) return 0;
+      alias[1] = SearchPrevSkipSpacen(env.tokens, ed-1)+1;
+   } else if (is_static) {
+      alias = name;
+      name = null;
+   } else {
+      alias = [name[0], name[1]];
+   }
+   const deco = <TokenDecoration>{
+      st, ed,
+      tag: 'using',
+      data: { alias, name },
+   };
+   using_token.deco = deco;
+   return ed - st + 1;
+}
+
 export class CSharpParser {
    constructor() {
    }
@@ -64,6 +123,8 @@ export class CSharpParser {
          tokens: <Token[]>[],
       };
       ExtractTokens(env, csharp_extract_feature);
+      env.curI = 0;
+      DecorateScope(env, csharp_decorate_feature);
       return env.tokens;
    }
 }

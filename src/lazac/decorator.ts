@@ -13,6 +13,10 @@ const common_left_right_bracket_map = <any>{
    '(': ')', '{': '}', '[': ']', '<': '>'
 };
 
+export function TokensString(env: ParseEnv, st: number, ed: number): string {
+   return env.tokens.slice(st, ed).map((x: Token) => x.T).join('');
+}
+
 export function DecorateSkipCurrentLine(env: ParseEnv): number {
    const st = env.curI;
    const ed = SearchNext(
@@ -31,9 +35,9 @@ export function DecorateBracket(env: ParseEnv): number {
       ch = token.T;
       if (common_left_bracket.indexOf(ch) >= 0) {
          stack.push({i: i, ch: common_left_right_bracket_map[ch]});
-         if (!token.data) token.data = {};
-         token.data.startIndex = i;
-         token.data.tag = TAG_BRACKET[ch];
+         if (!token.deco) token.deco = {};
+         token.deco.st = i;
+         token.deco.tag = TAG_BRACKET[ch];
       } else if (common_right_bracket.indexOf(ch) >= 0) {
          let pair = stack.pop();
          if (pair.ch !== ch) {
@@ -41,8 +45,8 @@ export function DecorateBracket(env: ParseEnv): number {
              // TODO: if here, what we can do?
          }
          const pairToken = env.tokens[pair.i];
-         if (!pairToken.data) pairToken.data = {};
-         pairToken.endIndex = i+1;
+         if (!pairToken.deco) pairToken.deco = {};
+         pairToken.deco.ed = i+1;
       }
    }
    return env.tokens.length;
@@ -51,8 +55,8 @@ export function DecorateBracket(env: ParseEnv): number {
 export function DecorateKeywords(env: ParseEnv, keywords: string[]): number {
    env.tokens.forEach((token) => {
       if (keywords.indexOf(token.T) >= 0) {
-         if (!token.data) token.data = {};
-         token.data.tag = TAG_KEYWORD;
+         if (!token.deco) token.deco = {};
+         token.deco.tag = TAG_KEYWORD;
       }
    });
    return env.tokens.length;
