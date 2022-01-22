@@ -20,7 +20,15 @@ const csharp_extract_feature = {
 };
 
 function extract_string(env: ParseEnv) {
+   // ref: https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/tokens/verbatim
+   // ref: 
    // TODO: @"C:\raw\data"
+   //       @"He said, ""This is the last \u0063hance\x0021"""
+   //       $"Hello, {name}! Today is {date.DayOfWeek}, it's {date:HH:mm} now."
+   //       $"{name} is {age} year{(age == 1 ? "" : "s")} old."
+   //       $"|{"Left",-7}|{"Right",7}|"
+   // TODO: string[] @for = { "John", "James", "Joan", "Jamie" }; Console.WriteLine($"Here is your gift, {@for[0]}!")
+   //       [@Info("A simple executable.")]
    return ExtractString(env, '"', '"', '\\');
 }
 

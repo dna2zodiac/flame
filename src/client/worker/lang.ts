@@ -14,6 +14,9 @@ const env = <any>{
    golang: false,
    csharp: false,
    javascript: false,
+   css: false,
+   rust: false,
+   kotlin: false,
    ruby: false,
 };
 
@@ -44,6 +47,9 @@ function workerProcess(obj: any): Promise<any> {
    case 'golang': return parseLang('golang', 'FlameGolangParser', obj, res);
    case 'javascript': return parseLang('javascript', 'FlameJavascriptParser', obj, res);
    case 'csharp': return parseLang('csharp', 'FlameCSharpParser', obj, res);
+   case 'css': return parseLang('css', 'FlameCssParser', obj, res);
+   case 'rust': return parseLang('rust', 'FlameRustParser', obj, res);
+   case 'kotlin': return parseLang('kotlin', 'FlameKotlinParser', obj, res);
    case 'ruby': return parseLang('ruby', 'FlameRubyParser', obj, res);
    }
    return Promise.resolve(res);
@@ -76,6 +82,7 @@ function parseLang(lang: string, klass: string, obj: any, res: any): Promise<any
 }
 
 function ConvertTokenToSyntaxItem(tokens: Token[]) : SyntaxItem[] {
+   console.log('convert', tokens);
    const rs: SyntaxItem[] = [];
    let L = 0, col = 0;
    for (let i = 0, n = tokens.length; i < n; i++) {

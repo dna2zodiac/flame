@@ -70,11 +70,18 @@ const spacen = ['', ' ', '\t', '\r', '\n'];
    full_right: [')', '}', ']', '>'],
 };*/
 
-/* env = { text, curI, tokens, ... } */
+/*
+   env = { text, curI, tokens, ... }
+   env.meta = {
+      language features
+      e.g. c++11, c++17, es5, es6, es2017, py2, py3, ...
+   }
+ */
 export interface ParseEnv {
    text: string;
    curI: number;
    tokens: Token[];
+   meta?: any;
 }
 
 export interface TokenDecoration {

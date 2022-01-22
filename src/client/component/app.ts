@@ -395,6 +395,12 @@ class BodyConnector {
                cmd = 'javascript'; break;
             case '.cs':
                cmd = 'csharp'; break;
+            case '.css':
+               cmd = 'css'; break;
+            case '.rs':
+               cmd = 'rust'; break;
+            case '.kt':
+               cmd = 'kotlin'; break;
             case '.rb':
                cmd = 'ruby'; break;
             }
