@@ -14,6 +14,8 @@ export interface IContentProvider {
 }
 
 export interface ISearchProvider {
+   Search (query: string, options: any): Promise<any>;
+
    SearchProject (query: string, options: any): Promise<any>;
    SearchFile (query: string, options: any): Promise<any>;
    SearchContent (query: string, options: any): Promise<any>;

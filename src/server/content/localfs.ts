@@ -238,4 +238,44 @@ export class LocalFSSearchProvider implements ISearchProvider {
       }
       return r;
    }
+
+   async Search (query: string, options: any): Promise<any> {
+      const r = {
+         matchQuery: query,
+         items: <any[]>[],
+      };
+      // XXX: ugly code here for involving canceled
+      //      flag here
+      const srProject = options.canceled?null:(await this.SearchProject(query, options));
+      const srFile = options.canceled?null:(await this.SearchFile(query, options));
+      const srContent = options.canceled?null:(await this.SearchContent(query, options));
+      srProject && srProject.items.forEach((name: any) => {
+         r.items.push({
+            path: '/' + name, matches: []
+         });
+      });
+      srFile && srFile.items.forEach((item: any) => {
+         r.items.push({
+            path: '/' + item.project + item.path,
+            matches: [],
+         });
+      });
+      srContent && srContent.items.forEach((item: any) => {
+         const last = r.items[r.items.length - 1];
+         const path = '/' + item.project + item.path;
+         if (last && last.path === path) {
+            last.matches.push({
+               L: item.line, T: item.content,
+            });
+         } else {
+            r.items.push({
+               path: '/' + item.project + item.path,
+               matches: [{
+                  L: item.line, T: item.content,
+               }],
+            });
+         }
+      });
+      return r;
+   }
 }

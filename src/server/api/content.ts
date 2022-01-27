@@ -1,7 +1,11 @@
 import {
    LocalFSContentProvider,
-   LocalFSSearchProvider
+   LocalFSSearchProvider,
 } from '../content/localfs';
+import {
+   ModifiedZoektContentProvider,
+   ModifiedZoektSearchProvider,
+} from '../content/modified_zoekt';
 
 const iUtil = require('../framework/util');
 
@@ -11,6 +15,14 @@ const localfs = new LocalFSContentProvider(
 const localfs_searcher = new LocalFSSearchProvider(
    localfs
 );
+/*const modified_zoekt = new ModifiedZoektContentProvider({
+   baseUrl: process.env.FLAME_MODIFIED_ZOEKT_BASEURL
+});
+const modified_zoekt_searcher = new ModifiedZoektSearchProvider(
+   modified_zoekt
+);*/
+const content = localfs;
+const searcher = localfs_searcher;
 
 export const api = {
    get: async (req: any, res: any, opt: any) => {
@@ -18,23 +30,23 @@ export const api = {
       const parts: string[] = opt.path;
       const urlObj = iUtil.parseUrl(req.url);
       if (!parts.length) {
-         iUtil.rJson(res, await localfs.GetProjectList());
+         iUtil.rJson(res, await content.GetProjectList());
       } else if (parts.length === 1 && !parts[0]) {
-         iUtil.rJson(res, await localfs.GetProjectList());
+         iUtil.rJson(res, await content.GetProjectList());
       } else {
          const project = parts.shift();
          const path = parts.join('/') || '/';
          try {
             if ('meta' in urlObj.query) {
-               iUtil.rJson(res, await localfs.GetMetaData(
+               iUtil.rJson(res, await content.GetMetaData(
                   project, path
                ));
             } else if (path.endsWith('/')) {
-               iUtil.rJson(res, await localfs.GetDirectoryContent(
+               iUtil.rJson(res, await content.GetDirectoryContent(
                   project, path
                ));
             } else {
-               iUtil.rJson(res, await localfs.GetFileContent(
+               iUtil.rJson(res, await content.GetFileContent(
                   project, path
                ));
             }
@@ -54,46 +66,18 @@ export const api = {
       if (!query) {
          return iUtil.e400(res);
       }
-      const options = { canceled: false };
+      const options = Object.assign(
+         { canceled: false }, opt
+      );
       req.on('close', () => {
          options.canceled = true;
       });
       try {
-         const srProject = options.canceled?null:(await localfs_searcher.SearchProject(query, options));
-         const srFile = options.canceled?null:(await localfs_searcher.SearchFile(query, options));
-         const srContent = options.canceled?null:(await localfs_searcher.SearchContent(query, options));
-         const r = {
-            matchRegexp: query,
-            items: <any[]>[],
-         };
-         srProject && srProject.items.forEach((name: any) => {
-            r.items.push({
-               path: '/' + name, matches: []
-            });
-         });
-         srFile && srFile.items.forEach((item: any) => {
-            r.items.push({
-               path: '/' + item.project + item.path,
-               matches: [],
-            });
-         });
-         srContent && srContent.items.forEach((item: any) => {
-            const last = r.items[r.items.length - 1];
-            const path = '/' + item.project + item.path;
-            if (last && last.path === path) {
-               last.matches.push({
-                  L: item.line, T: item.content,
-               });
-            } else {
-               r.items.push({
-                  path: '/' + item.project + item.path,
-                  matches: [{
-                     L: item.line, T: item.content,
-                  }],
-               });
-            }
-         });
-         iUtil.rJson(res, r);
+         const r = <any>{};
+         if (!options.canceled) {
+            Object.assign(r, await searcher.Search(query, options));
+         }
+         iUtil.rJson(res, r.items?r:null);
       } catch(_) {
          iUtil.e500(res);
       }
