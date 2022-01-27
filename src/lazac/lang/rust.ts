@@ -18,7 +18,7 @@ import {
 
 const rust_extract_feature = {
    '"': [extract_string],
-   // TODO: to identify 'label or 'string'
+   // TODO: to identify 'lifetime, 'label or 'string'
    // '\'': [extract_char],
    '/': [extract_line_comment]
 };
@@ -29,7 +29,7 @@ function extract_string(env: ParseEnv) {
 }
 
 function extract_char(env: ParseEnv) {
-   // TODO b''
+   // TODO: b'', '1, 'a, 'static
    return ExtractString(env, '\'', '\'', '\\');
 }
 
