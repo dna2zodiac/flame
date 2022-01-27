@@ -2,6 +2,11 @@ import {ElemEmpty, ElemAppendText} from '../logic/util';
 import {StyleMap} from '../style/style';
 import {SyntaxItem} from '../../share/common';
 
+export interface Point {
+   x: number;
+   y: number;
+}
+
 export class SourceCodeViewer {
    opt: any = {};
    lines: string[] = [];
@@ -22,6 +27,7 @@ export class SourceCodeViewer {
    };
    events: any = {};
    cache = {
+      font: '',
       maxLineWidth: 0
    };
 
@@ -298,5 +304,55 @@ export class SourceCodeViewer {
       }
       // this.ui.extra.highlight.line.style.display = 'none';
       // this.LineHighlight(startLineNumber, endLineNumber);
+   }
+
+   cacheSourceCodeFont() {
+      if (this.cache.font) return this.cache.font;
+      this.cache.font = window.getComputedStyle(this.ui.text).font;
+      return this.cache.font;
+   }
+
+   Px2Pos(px: Point): Point {
+      const hL = (<HTMLElement>this.ui.lineNumber.children[0]).offsetHeight;
+      const canvas = document.createElement('canvas');
+      const pen = canvas.getContext("2d");
+      canvas.style.font = this.cacheSourceCodeFont();
+      const L = px.y < 0?-1:(px.y >= this.lines.length?-1:(~~(px.y / hL)));
+      if (L < 0) return { x: -1, y: L };
+      const line = this.GetLine(L + 1);
+      let st = 0, ed = line.length, mx = -1;
+      if (pen.measureText(line).width < px.x || 0 > px.x) {
+         return {x: -1, y: L};
+      }
+      while (st < ed-1) {
+         const mid = ~~((st + ed) / 2);
+         const m = pen.measureText(line.substring(st, mid));
+         if (px.x < m.width) {
+            ed = mid;
+         } else if (px.x > m.width) {
+            st = mid;
+         } else {
+            mx = st;
+            break;
+         }
+      }
+      if (mx < 0) {
+         if (ed - st === 1) {
+            mx = st;
+         }
+         // if (ed === st) // should not be
+      }
+      return {x: mx, y: L};
+   }
+
+   Pos2Px(pos: Point): Point {
+      const line = this.GetLine(pos.y+1);
+      const hL = (<HTMLElement>this.ui.lineNumber.children[0]).offsetHeight;
+      const canvas = document.createElement('canvas');
+      const pen = canvas.getContext("2d");
+      canvas.style.font = this.cacheSourceCodeFont();
+      const m0 = pen.measureText(line.substring(0, pos.x));
+      const m1 = pen.measureText(line.substring(0, pos.x+1));
+      return { x: (m0.width + m1.width)/2, y: hL * (Math.floor(pos.y) + 0.5) };
    }
 }
