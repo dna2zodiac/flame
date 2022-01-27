@@ -11,6 +11,6 @@ npm install
 bash $SELF/script/build.sh
 
 FLAME_STATIC_DIR=$SELF/dist/static \
-FLAME_LOCALFS_BASEDIR=/path/to/source/code/root \
+FLAME_PROVIDER_CONFIG=/path/to/config.json.example \
 node $SELF/dist/index.js
 ```

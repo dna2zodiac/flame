@@ -1,28 +1,14 @@
 import {
-   LocalFSContentProvider,
-   LocalFSSearchProvider,
-} from '../content/localfs';
-import {
-   ModifiedZoektContentProvider,
-   ModifiedZoektSearchProvider,
-} from '../content/modified_zoekt';
+   MixedContentAndSearchProvider
+} from '../content/mixed';
 
 const iUtil = require('../framework/util');
 
-const localfs = new LocalFSContentProvider(
-   process.env.FLAME_LOCALFS_BASEDIR || '/tmp'
+const mixed_provider = new MixedContentAndSearchProvider(
+   process.env.FLAME_PROVIDER_CONFIG
 );
-const localfs_searcher = new LocalFSSearchProvider(
-   localfs
-);
-/*const modified_zoekt = new ModifiedZoektContentProvider({
-   baseUrl: process.env.FLAME_MODIFIED_ZOEKT_BASEURL
-});
-const modified_zoekt_searcher = new ModifiedZoektSearchProvider(
-   modified_zoekt
-);*/
-const content = localfs;
-const searcher = localfs_searcher;
+const content = mixed_provider;
+const searcher = mixed_provider;
 
 export const api = {
    get: async (req: any, res: any, opt: any) => {

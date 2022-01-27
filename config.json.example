@@ -1,0 +1,6 @@
+{
+   "contentProviders": [
+      { "type": "modified_zoekt", "base": "http://127.0.0.1:6070" },
+      { "type": "localfs", "base": "/dna2zodiac/flame/local/src" }
+   ]
+}
