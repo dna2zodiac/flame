@@ -1,0 +1,47 @@
+type Project {
+   id: ID!
+   name: String! @search(by: [regexp])
+   files: [File!] @hasInverse(field: project)
+}
+
+type File {
+   id: ID!
+   name: String! @search(by: [regexp])
+   rev: Int! @search
+   project: Project!
+}
+
+type Hash {
+   hash: String! @id @search(by: [exact])
+   files: [File!]
+   symbols: [Symbol!] @hasInverse(field: hash)
+   comments: [Comment!] @hasInverse(field: hash)
+}
+
+type Symbol {
+   id: ID!
+   name: String! @search(by: [regexp])
+   line: Int! @search
+   column: Int! @search
+   len: Int! @search
+   language: String @search(by: [exact])
+   langver: Int @search
+   hash: Hash
+}
+
+type Comment {
+   id: ID!
+   line: Int! @search
+   desc: String @search(by: [fulltext])
+   user: Int @search
+   scope: Int @search
+   hash: Hash
+}
+
+type Topic {
+   id: ID!
+   title: String! @search(by: [fulltext])
+   user: Int @search
+   scope: Int @search
+   comments: [Comment!]
+}
