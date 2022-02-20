@@ -317,7 +317,7 @@ export class SourceCodeViewer {
       const canvas = document.createElement('canvas');
       const pen = canvas.getContext("2d");
       canvas.style.font = this.cacheSourceCodeFont();
-      const L = px.y < 0?-1:(px.y >= this.lines.length?-1:(~~(px.y / hL)));
+      const L = px.y < 0?-1:(px.y >= this.lines.length*hL?-1:(~~(px.y / hL)));
       if (L < 0) return { x: -1, y: L };
       const line = this.GetLine(L + 1);
       let st = 0, ed = line.length, mx = -1;
