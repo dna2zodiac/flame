@@ -90,7 +90,9 @@ export class SourceCodeViewer {
          const span = document.createElement('span');
          const syntax = syntaxMapByLine[i];
          if (!syntax || syntax.length === 0) {
-            ElemAppendText(span, line);
+            const one = document.createElement('span');
+            ElemAppendText(one, line);
+            span.appendChild(one);
          } else {
             // XXX: we do not consider overlap now
             syntax.sort((a: any, b: any) => a.st - b.st);
@@ -367,8 +369,8 @@ export class SourceCodeViewer {
       const S = document.getSelection();
       const R = S.getRangeAt(0);
 
-      const ac = R.commonAncestorContainer;
-      if (ac !== this.ui.text) return null;
+      const ac = <HTMLElement>R.commonAncestorContainer;
+      if (!this.isTextChild(ac)) return null;
       // if (!ac.classList.contains('editor-text')) return null;
 
       const sc = R.startContainer;
@@ -397,6 +399,16 @@ export class SourceCodeViewer {
          range.o1 = range.o1 ^ range.o2;
       }
       return range;
+   }
+   isTextChild(span: HTMLElement): boolean {
+      const body = document.body;
+      const root = this.ui.text;
+      let cursor = span;
+      while (cursor !== body && cursor.parentElement) {
+         if (cursor === root) return true;
+         cursor = cursor.parentElement;
+      }
+      return false;
    }
    getSpanL(span: HTMLElement): number {
       const cs = this.ui.text;
