@@ -2,6 +2,17 @@ const i_fs = require('fs');
 const i_url = require('url');
 
 const api = {
+   buildParams: (query) => {
+      const r = {};
+      if (!query) return r;
+      query.split('&').forEach((one) => {
+         const parts = one.split('=');
+         const key = decodeURIComponent(parts[0]);
+         const val = decodeURIComponent(parts.slice(1).join('='));
+         r[key] = val;
+      });
+      return r;
+   }, // buildParams
    readRequestBinary: async (req) => {
       return new Promise((resolve, reject) => {
          let body = [];
@@ -27,6 +38,10 @@ const api = {
    },
    r200: (res, text) => {
       res.writeHead(200, text || null);
+      res.end();
+   },
+   rRedirect: (res, url) => {
+      res.writeHead(303, { Location: url });
       res.end();
    },
    e400: (res, text) => {
