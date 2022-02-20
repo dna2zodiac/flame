@@ -7,6 +7,13 @@ export interface Point {
    y: number;
 }
 
+export interface Range {
+   L1: number;
+   o1: number;
+   L2: number;
+   o2: number;
+}
+
 export class SourceCodeViewer {
    opt: any = {};
    lines: string[] = [];
@@ -354,5 +361,63 @@ export class SourceCodeViewer {
       const m0 = pen.measureText(line.substring(0, pos.x));
       const m1 = pen.measureText(line.substring(0, pos.x+1));
       return { x: (m0.width + m1.width)/2, y: hL * (Math.floor(pos.y) + 0.5) };
+   }
+
+   GetSelectedRange(): Range {
+      const S = document.getSelection();
+      const R = S.getRangeAt(0);
+
+      const ac = R.commonAncestorContainer;
+      if (ac !== this.ui.text) return null;
+      // if (!ac.classList.contains('editor-text')) return null;
+
+      const sc = R.startContainer;
+      const so = R.startOffset;
+      const ec = R.endContainer;
+      const eo = R.endOffset;
+
+      if (sc === ec && so === eo) return null;
+      // <span <span <text> > <span <text> > ... ><br>
+      const scpp = sc.parentElement.parentElement;
+      const ecpp = ec.parentElement.parentElement;
+      const range = {
+         L1: this.getSpanL(scpp),
+         o1: this.getSpanC(scpp, sc.parentElement) + so,
+         L2: this.getSpanL(ecpp),
+         o2: this.getSpanC(ecpp, ec.parentElement) + eo,
+      };
+      if (range.L1 < 0 || range.L2 < 0) return null;
+      if (range.o1 < 0 || range.o2 < 0) return null;
+      if (range.L1 > range.L2 || (range.L1 === range.L2 && range.o1 > range.o2)) {
+         range.L1 = range.L1 ^ range.L2;
+         range.L2 = range.L1 ^ range.L2;
+         range.L1 = range.L1 ^ range.L2;
+         range.o1 = range.o1 ^ range.o2;
+         range.o2 = range.o1 ^ range.o2;
+         range.o1 = range.o1 ^ range.o2;
+      }
+      return range;
+   }
+   getSpanL(span: HTMLElement): number {
+      const cs = this.ui.text;
+      const n = cs.children.length;
+      let i = 0, L = 0;
+      for (; i < n; i++) {
+         const c = cs.children[i];
+         if (c === span) break;
+         if (c.tagName.toLowerCase() === 'br') L++;
+      }
+      if (i === n) return -1;
+      return L;
+   }
+   getSpanC(container: HTMLElement, span: HTMLElement): number {
+      const n = container.children.length;
+      let o = 0;
+      for (let i = 0; i < n; i++) {
+         const c = container.children[i];
+         if (c === span) return o;
+         o += c.textContent.length;
+      }
+      return -Infinity;
    }
 }
