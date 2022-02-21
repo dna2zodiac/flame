@@ -49,6 +49,8 @@ export class ModifiedZoektContentProvider implements IContentProvider {
          reqOpt.headers = { Authorization: this.opt.authentication };
       }
       // TODO: how to deal with huge text file?
+      // XXX: cause null object if meet control char like \x07 \x08 ...
+      //      in nodeJS JSON parser, it should be '"\\u007"' (`"\u007"`)
       const json = await Request(reqOpt);
       if (!json || json.error) throw json;
       // XXX: currently modified zoekt raise 403 error if it is binary file
