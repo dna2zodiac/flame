@@ -5,6 +5,13 @@ const iUtil = require('../framework/util');
 const iPath = require('path');
 const iFile = require('fs');
 
+function HtmlEncode(text: string): string {
+   text = text.replace(/&/g, '&amp;');
+   text = text.replace(/</g, '&lt;');
+   text = text.replace(/>/g, '&gt;');
+   return text;
+}
+
 export class LocalFSContentProvider implements IContentProvider {
    baseDir: string;
 
@@ -265,13 +272,13 @@ export class LocalFSSearchProvider implements ISearchProvider {
          const path = '/' + item.project + item.path;
          if (last && last.path === path) {
             last.matches.push({
-               L: item.line, T: item.content,
+               L: item.line, T: HtmlEncode(item.content),
             });
          } else {
             r.items.push({
                path: '/' + item.project + item.path,
                matches: [{
-                  L: item.line, T: item.content,
+                  L: item.line, T: HtmlEncode(item.content),
                }],
             });
          }

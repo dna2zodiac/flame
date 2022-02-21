@@ -1,4 +1,10 @@
-import {ElemEmpty, ElemAppendText, ElemDivMessage, ElemIcon} from '../../logic/util';
+import {
+   ElemEmpty,
+   ElemAppendText,
+   ElemSafeAppendHtml,
+   ElemDivMessage,
+   ElemIcon
+} from '../../logic/util';
 import {DataClient} from '../../logic/api';
 
 export interface SearchResultMatch {
@@ -57,7 +63,7 @@ export class SearchItem {
          const a = document.createElement('a');
          const span = document.createElement('a');
          ElemAppendText(a, `${m.L}`);
-         ElemAppendText(span, m.T);
+         ElemSafeAppendHtml(span, m.T);
          span.href = '#' + this.item.path + '#L=' + m.L;
          lineno.appendChild(a);
          lines.appendChild(span);

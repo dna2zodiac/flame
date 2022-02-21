@@ -14,6 +14,40 @@ export function ElemAppendHtml(elem: HTMLElement, html: string) {
    return elem;
 }
 
+export function HtmlEncode(text: string): string {
+   text = text.replace(/&/g, '&amp;');
+   text = text.replace(/</g, '&lt;');
+   text = text.replace(/>/g, '&gt;');
+   return text;
+}
+
+export function ElemSafeAppendHtml(elem: HTMLElement, html: string): boolean {
+   // XXX: const fg = document.createDocumentFragment();
+   const fg = document.createElement('div');
+   fg.innerHTML = html;
+   if (!guard(fg)) {
+      return false;
+   }
+   elem.innerHTML += html;
+   return true;
+
+   function guard(elem: Element) {
+      switch (elem.tagName.toLowerCase()) {
+      case 'script':
+      case 'iframe':
+      // TODO: embed, ...
+         return false;
+      }
+      const n = elem.children.length;
+      for (let i = 0; i < n; i++) {
+         const subelem = elem.children[i];
+         const r = guard(subelem);
+         if (!r) return false;
+      }
+      return true;
+   }
+}
+
 export function ElemDivMessage(elem: HTMLElement, message: string, color: string = null, icon: string = null) {
    const div = document.createElement('div');
    if (icon) {
