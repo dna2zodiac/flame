@@ -11,6 +11,9 @@ import {SideNavTeamTab} from './sidenav/team';
 import {SideNavSettingsTab} from './sidenav/settings';
 import {SourceCodeViewer} from './editor';
 
+const GlobalShared: any = {};
+(<any>window).FlameApp = GlobalShared;
+
 class AppIconButton {
    ui = {
       self: document.createElement('div'),
@@ -197,6 +200,11 @@ class BodyConnector {
       this.components.side = side;
       this.components.view = view;
 
+      // expose APIs to global
+      // XXX: are there security concerns?
+      GlobalShared.component = Object.assign({}, this.components);
+      GlobalShared.component.editor = this.editor;
+
       nav.ui.btn.forEach((btn: AppIconButton) => {
          nav.ui.self.appendChild(btn.GetDom());
          btn.OnClick((evt: any) => {
@@ -374,6 +382,7 @@ class BodyConnector {
                   window.location.hash = that.buildHash({ L: lnstr || null });
                }
             });
+            GlobalShared.component.editor = that.editor;
             that.components.view.ui.view.appendChild(that.editor.GetDom());
             that.editor.Render(obj.data);
 
