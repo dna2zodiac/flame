@@ -56,10 +56,12 @@ export class SearchItem {
       lineno.className = 'editor-left-side';
       lines.className = 'editor-text';
       this.item.matches.forEach((m: SearchResultMatch, i: number) => {
+         /*
          if (i > 0) {
             lineno.appendChild(document.createElement('br'));
             lines.appendChild(document.createElement('br'));
          }
+         */
          const a = document.createElement('a');
          const span = document.createElement('a');
          ElemAppendText(a, `${m.L}`);

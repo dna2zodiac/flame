@@ -266,6 +266,7 @@ export const styleObjects = {
    },
    '.search-item a': {
       'text-decoration': 'none',
-      color: 'black'
+      color: 'black',
+      display: 'block'
    },
 };
