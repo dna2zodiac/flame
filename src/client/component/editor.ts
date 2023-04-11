@@ -1,6 +1,7 @@
 import {ElemEmpty, ElemAppendText} from '../logic/util';
 import {StyleMap} from '../style/style';
 import {SyntaxItem} from '../../share/common';
+import {BinarySearch} from '../../share/algorithm';
 
 export interface Point {
    x: number;
@@ -263,6 +264,16 @@ export class SourceCodeViewer {
       return r;
    }
 
+   getLineTop(i: number): number {
+      if (i < 0) return 0;
+      const n = ~~(this.ui.lineNumber.children.length / 2) + 1;
+      if (i > n) return 0;
+      const el = <HTMLElement>this.ui.lineNumber.children[i * 2];
+      if (i === n && !el) return this.ui.lineNumber.offsetHeight;
+      if (!el) return 0;
+      return el.offsetTop;
+   }
+
    LineHighlight (startLineNumber: number, endLineNumber: number, appendMode: boolean = false) {
       // if appendMode is true, create a new div
       // otherwise remove all previous divs and then use a new one for highlight
@@ -280,9 +291,9 @@ export class SourceCodeViewer {
       }
       if (sted[0] < 0) return;
       const div = document.createElement('div');
-      const hL = (<HTMLElement>this.ui.lineNumber.children[0]).offsetHeight;
       div.style.width = this.cache.maxLineWidth + 'px';
-      const top = (sted[0] - 1) * hL, bottom = (sted[1] - 1) * hL;
+      const lineItop = sted[0] - 1, lineIbottom = sted[1] - 1;
+      const top = this.getLineTop(lineItop), bottom = this.getLineTop(lineIbottom);
       div.className = 'line';
       div.style.height = (bottom - top) + 'px';
       div.style.top = top + 'px';
@@ -299,10 +310,10 @@ export class SourceCodeViewer {
       if (sted[0] < 0) return;
       const n = this.lines.length;
 
-      const hL = (<HTMLElement>this.ui.lineNumber.children[0]).offsetHeight;
       const curTop = this.ui.container.scrollTop;
       const curH = this.ui.container.offsetHeight;
-      var top = (sted[0] - 1) * hL, bottom = (sted[1] - 1) * hL;
+      const lineItop = sted[0] - 1, lineIbottom = sted[1] - 1;
+      let top = this.getLineTop(lineItop), bottom = this.getLineTop(lineIbottom);
       var x = this.ui.container.scrollLeft;
       if (curTop > top) {
          this.ui.container.scrollTo(x, top);
@@ -322,12 +333,17 @@ export class SourceCodeViewer {
    }
 
    Px2Pos(px: Point): Point {
-      const hL = (<HTMLElement>this.ui.lineNumber.children[0]).offsetHeight;
       const canvas = document.createElement('canvas');
       const pen = canvas.getContext("2d");
       canvas.style.font = this.cacheSourceCodeFont();
-      const L = px.y < 0?-1:(px.y >= this.lines.length*hL?-1:(~~(px.y / hL)));
-      if (L < 0) return { x: -1, y: L };
+      // calculate Y (lineNumber)
+      let L = -1;
+      if (px.y >= 0 && px.y < this.ui.lineNumber.offsetHeight) {
+         L = BinarySearch(0, this.lines.length, px.y, this.getLineTop.bind(this));
+      }
+      if (L < 0) return { x: -1, y: -1 };
+
+      // calculate X (lineColumn)
       const line = this.GetLine(L + 1);
       let st = 0, ed = line.length, mx = -1;
       if (pen.measureText(line).width < px.x || 0 > px.x) {
@@ -356,13 +372,12 @@ export class SourceCodeViewer {
 
    Pos2Px(pos: Point): Point {
       const line = this.GetLine(pos.y+1);
-      const hL = (<HTMLElement>this.ui.lineNumber.children[0]).offsetHeight;
       const canvas = document.createElement('canvas');
       const pen = canvas.getContext("2d");
       canvas.style.font = this.cacheSourceCodeFont();
       const m0 = pen.measureText(line.substring(0, pos.x));
       const m1 = pen.measureText(line.substring(0, pos.x+1));
-      return { x: (m0.width + m1.width)/2, y: hL * (Math.floor(pos.y) + 0.5) };
+      return { x: (m0.width + m1.width)/2, y: (this.getLineTop(pos.y) + this.getLineTop(pos.y + 1))/2 };
    }
 
    GetSelectedRange(): Range {
