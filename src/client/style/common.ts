@@ -129,7 +129,8 @@ export const styleObjects = {
    },
    '.flex-column': { 'flex-direction': 'column' },
    '.flex-row': { 'flex-direction': 'row' },
-   '.flex-auto': { 'flex': '1 1 auto' },
+   '.flex10-auto': { 'flex': '1 0 auto' },
+   '.flex11-auto': { 'flex': '1 1 auto' },
    '.flex-w0': { width: '0px' },
    '.flex-h0': { height: '0px' },
    '@keyframes spin-spinner': { 'to': '{ transform: rotate(360deg); }' },
@@ -149,6 +150,7 @@ export const styleObjects = {
    },
    '.full-w': { width: '100%' },
    '.full-h': { height: '100%' },
+   '.fixed': { overflow: 'hidden' },
    '.scrollable': { overflow: 'auto' },
    '.scrollable-x': {
       'overflow-x': 'auto',

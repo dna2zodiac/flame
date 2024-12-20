@@ -142,7 +142,7 @@ export class SourceCodeViewer {
       const sideFlex = document.createElement('div');
       sideFlex.className = 'editor-side-flex';
       this.ui.leftSide.className = 'editor-left-side';
-      this.ui.text.className = 'editor-text flex-auto';
+      this.ui.text.className = 'editor-text flex11-auto';
       this.ui.lineNumber.className = 'editor-linenumber';
       this.ui.highlight.className = 'editor-highlight';
       this.ui.blame.style.display = 'none';

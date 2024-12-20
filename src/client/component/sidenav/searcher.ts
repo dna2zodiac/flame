@@ -104,7 +104,7 @@ export class SideNavSearcherTab {
 
       const box = document.createElement('div');
       box.className = 'item-thin item-yellow flex-table flex-row';
-      this.ui.box.query.className = 'item-input flex-auto';
+      this.ui.box.query.className = 'item-input flex11-auto';
       this.ui.box.search.appendChild(ElemIcon('img/search.svg', 12, 12));
       this.ui.box.search.style.marginRight = '2px';
       box.appendChild(this.ui.box.query);

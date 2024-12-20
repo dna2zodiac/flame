@@ -172,10 +172,10 @@ class AppMainView {
    };
 
    constructor () {
-      this.ui.self.className = 'flex-auto flex-w0';
+      this.ui.self.className = 'flex11-auto flex-w0';
       const div = document.createElement('div');
       div.className = 'flex-frame flex-column';
-      this.ui.view.className = 'flex-auto flex-h0';
+      this.ui.view.className = 'flex11-auto flex-h0';
       div.appendChild(this.ui.nav.GetDom());
       this.ui.nav.Render('/');
       this.ui.view.innerHTML = '';
@@ -553,7 +553,7 @@ export class AppFrame {
    }
 
    buildBody() {
-      this.ui.body.className = 'flex-auto flex-h0';
+      this.ui.body.className = 'flex11-auto flex-h0';
       const container = document.createElement('div');
       const div = document.createElement('div');
       container.className = 'full scrollable-no';
