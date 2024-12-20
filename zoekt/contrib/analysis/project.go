@@ -763,7 +763,9 @@ func NewGitProject (projectName string, baseDir string, options map[string]strin
 	url, ok := options["Url"]
 	if !ok {
 		log.Printf("P/%s: [E] missing Url\n", projectName)
-		return nil
+		// it's okay to missing Url if we do not need to navigate user to a source site
+		// (uncomment out if we do not allow empty url) return nil
+		url = "/"
 	}
 	branch, ok := options["Branch"]
 	if !ok {
