@@ -1,4 +1,6 @@
 import {
+   Elem,
+   ElemAppend,
    ElemEmpty,
    ElemAppendText,
    ElemSafeAppendHtml,
@@ -28,9 +30,9 @@ export interface SearchResult {
  */
 export class SearchItem {
    ui = {
-      self: document.createElement('div'),
-      link: document.createElement('a'),
-      match: document.createElement('div')
+      self: Elem('div'),
+      link: <HTMLAnchorElement>Elem('a'),
+      match: Elem('div')
    };
    item: SearchResult;
 
@@ -46,45 +48,45 @@ export class SearchItem {
       ElemAppendText(this.ui.link, this.item.path);
       this.ui.link.href = '#' + this.item.path;
       if (!this.item.matches || !this.item.matches.length) {
-         this.ui.self.appendChild(this.ui.link);
+         ElemAppend(this.ui.self, this.ui.link);
          return;
       }
       this.ui.match.className = 'item-thin item-purple full-w scrollable editor-font';
       ElemEmpty(this.ui.match);
-      const lineno = document.createElement('div');
-      const lines = document.createElement('pre');
+      const lineno = Elem('div');
+      const lines = Elem('pre');
       lineno.className = 'editor-left-side';
       lines.className = 'editor-text';
       this.item.matches.forEach((m: SearchResultMatch, i: number) => {
          /*
          if (i > 0) {
-            lineno.appendChild(document.createElement('br'));
-            lines.appendChild(document.createElement('br'));
+            ElemAppend(lineno, Elem('br'));
+            ElemAppend(lines, Elem('br'));
          }
          */
-         const a = document.createElement('a');
-         const span = document.createElement('a');
+         const a = Elem('a');
+         const span = <HTMLAnchorElement>Elem('a');
          ElemAppendText(a, `${m.L}`);
          ElemSafeAppendHtml(span, m.T);
          span.href = '#' + this.item.path + '#L=' + m.L;
-         lineno.appendChild(a);
-         lines.appendChild(span);
+         ElemAppend(lineno, a);
+         ElemAppend(lines, span);
       });
-      this.ui.match.appendChild(lineno);
-      this.ui.match.appendChild(lines);
-      this.ui.self.appendChild(this.ui.link);
-      this.ui.self.appendChild(this.ui.match);
+      ElemAppend(this.ui.match, lineno);
+      ElemAppend(this.ui.match, lines);
+      ElemAppend(this.ui.self, this.ui.link);
+      ElemAppend(this.ui.self, this.ui.match);
    }
 }
 
 export class SideNavSearcherTab {
    ui = {
-      self: document.createElement('div'),
+      self: Elem('div'),
       box: {
-         query: document.createElement('input'),
-         search: document.createElement('button')
+         query: Elem('input'),
+         search: Elem('button')
       },
-      result: document.createElement('div')
+      result: Elem('div')
    };
 
    constructor() {
@@ -96,30 +98,31 @@ export class SideNavSearcherTab {
 
    Render() {
       ElemEmpty(this.ui.self);
-      this.ui.self.className = 'full scrollable-y';
-      const div = document.createElement('div');
+      this.ui.self.className = 'flex-table flex-column full fixed';
+      const div = Elem('div');
       div.className = 'item-thin item-yellow';
       ElemAppendText(div, 'Search');
-      this.ui.self.appendChild(div);
+      ElemAppend(this.ui.self, div);
 
-      const box = document.createElement('div');
+      const box = Elem('div');
       box.className = 'item-thin item-yellow flex-table flex-row';
       this.ui.box.query.className = 'item-input flex11-auto';
-      this.ui.box.search.appendChild(ElemIcon('img/search.svg', 12, 12));
+      ElemAppend(this.ui.box.search, ElemIcon('img/search.svg', 12, 12));
       this.ui.box.search.style.marginRight = '2px';
-      box.appendChild(this.ui.box.query);
-      box.appendChild(this.ui.box.search);
-      this.ui.self.appendChild(box);
+      ElemAppend(box, this.ui.box.query);
+      ElemAppend(box, this.ui.box.search);
+      ElemAppend(this.ui.self, box);
 
-      this.ui.self.appendChild(this.ui.result);
+      this.ui.result.className = 'flex10-auto flex-h0 scrollable-y';
+      ElemAppend(this.ui.self, this.ui.result);
    }
 
    Search(query: string): Promise<any> {
       // TODO: sync search box value
-      const spin = document.createElement('span');
+      const spin = Elem('span');
       ElemEmpty(this.ui.result);
       spin.className = 'spin spin-sm';
-      this.ui.result.appendChild(spin);
+      ElemAppend(this.ui.result, spin);
       ElemAppendText(this.ui.result, ' Searching ...');
       const req = DataClient.Project.Search(query, 50).Req();
       const that = this;
@@ -134,7 +137,7 @@ export class SideNavSearcherTab {
             return;
          }
          obj.items.forEach((item: any) => {
-            that.ui.result.appendChild(new SearchItem(item).GetDom());
+            ElemAppend(that.ui.result, new SearchItem(item).GetDom());
          });
       }, () => {
          // TODO: handle errors
@@ -142,6 +145,6 @@ export class SideNavSearcherTab {
       return req;
    }
 
-   Show() { this.ui.self.style.display = 'block'; }
+   Show() { this.ui.self.style.display = 'flex'; }
    Hide() { this.ui.self.style.display = 'none'; }
 }
