@@ -1,10 +1,11 @@
-import {ElemEmpty, ElemAppendText} from '../../logic/util';
+import {Elem, ElemAppend, ElemEmpty, ElemAppendText} from '../../logic/util';
 import {FolderTree} from '../treeview';
 
 export class SideNavBrowserTab {
    ui = {
-      self: document.createElement('div'),
-      tree: document.createElement('div')
+      self: Elem('div'),
+      treeContainer: Elem('div'),
+      tree: Elem('div')
    };
    tree: FolderTree = null;
 
@@ -15,18 +16,22 @@ export class SideNavBrowserTab {
    }
 
    GetDom() { return this.ui.self; }
+   GetTreeContainer() { return this.ui.treeContainer; }
    Dispose() {}
 
    Render() {
       ElemEmpty(this.ui.self);
-      this.ui.self.className = 'full scrollable';
-      const div = document.createElement('div');
+      this.ui.self.className = 'flex-table flex-column full fixed';
+      const div = Elem('div');
       div.className = 'item-thin item-yellow';
       ElemAppendText(div, 'Browse');
-      this.ui.self.appendChild(div);
-      this.ui.self.appendChild(this.ui.tree);
+      const divTree = this.ui.treeContainer;
+      divTree.className = 'flex10-auto flex-h0 scrollable';
+      ElemAppend(divTree, this.ui.tree);
+      ElemAppend(this.ui.self, div);
+      ElemAppend(this.ui.self, divTree);
    }
 
-   Show() { this.ui.self.style.display = 'block'; }
+   Show() { this.ui.self.style.display = 'flex'; }
    Hide() { this.ui.self.style.display = 'none'; }
 }

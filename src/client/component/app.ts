@@ -317,18 +317,19 @@ class BodyConnector {
       if (this.components.side.Tab() !== 'Browse') return;
       const side = this.components.side.ui.self;
       const btabDiv = this.components.side.ui.tab.Browse.GetDom();
-      const top = elem.offsetTop - side.offsetTop;
-      const top0 = btabDiv.scrollTop;
+      const btabCnt = this.components.side.ui.tab.Browse.GetTreeContainer();
+      const top = elem.offsetTop - side.offsetTop - (btabDiv.offsetHeight - btabCnt.offsetHeight);
+      const top0 = btabCnt.scrollTop;
       const h = elem.offsetHeight;
-      const h0 = btabDiv.offsetHeight;
-      const x = btabDiv.scrollLeft;
+      const h0 = btabCnt.offsetHeight;
+      const x = btabCnt.scrollLeft;
       if (top0 > top) {
-         btabDiv.scrollTo(x, top);
+         btabCnt.scrollTo(x, top);
       } else if (top0 + h0 - h < top) {
          let y = top - h0 + h;
          if (y < 0) y = 0;
          else if (y > top) y = top;
-         btabDiv.scrollTo(x, y);
+         btabCnt.scrollTo(x, y);
       }
    }
 
