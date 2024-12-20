@@ -52,7 +52,7 @@ export class MixedContentAndSearchProvider implements IContentProvider, ISearchP
             );
             incAndCheck();
          }, (err: any) => {
-            error.push(`[${config.type}] ${config.base}: not available; ${err.toString()}`);
+            error.push(`[${config.type}] ${config.base}: not available; ${err ? err.toString() : '(unknown)'}`);
             config.inst.projects = [];
             incAndCheck();
          });
