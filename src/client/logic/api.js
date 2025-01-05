@@ -1,4 +1,4 @@
-import {Ajax} from './util';
+const {Ajax} = require('./util');
 
 function debugRepeat(ch, n) {
    n = n || 1;

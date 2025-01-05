@@ -17,8 +17,8 @@ function FolderNode(name, path) {
    }
    this.name = name;
    this.path = path;
-   children = {};
-   state = 'none'; // none -> loading -> loaded/error
+   this.children = {};
+   this.state = 'none'; // none -> loading -> loaded/error
    this.Render();
 }
 FolderNode.prototype = {

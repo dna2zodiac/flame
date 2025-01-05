@@ -274,4 +274,6 @@ const styleObjects = {
    '.word-ba': { 'word-break': 'break-all' },
 };
 
-module.exports = styleObjects;
+module.exports = {
+   styleObjects,
+};

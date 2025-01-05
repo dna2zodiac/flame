@@ -83,4 +83,6 @@ const styleObjects = {
    }
 };
 
-module.exports = styleObjects;
+module.exports = {
+   styleObjects,
+};

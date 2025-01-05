@@ -69,6 +69,7 @@ function ElemDivMessage(elem, message, color, icon) {
 
 function ElemFlash(elem, count) {
    let sw = true;
+   count = count || 5;
    _flash();
 
    function _flash() {

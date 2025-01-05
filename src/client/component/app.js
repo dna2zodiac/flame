@@ -283,7 +283,7 @@ BodyConnector.prototype = {
       if (!this.editor.ScrollToLine) return;
       if (!this.editor.LineHighlight) return;
       const hashL = new HashL(lineMark);
-      this.editor.ScrollToLine(...hashL.GetRange());
+      this.editor.ScrollToLine(...(hashL.GetRange() || []));
       this.editor.LineHighlight(-1, -1);
       hashL.GetRaw().forEach(ab => {
          that.editor.LineHighlight(ab[0], ab[1], true);

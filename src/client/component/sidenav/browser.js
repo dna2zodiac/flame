@@ -11,7 +11,7 @@ function SideNavBrowserTab() {
    this.tree.root.AsyncUnfold();
    this.Render();
 }
-SidenavBrowserTab.prototype = {
+SideNavBrowserTab.prototype = {
    GetDom: function() { return this.ui.self; },
    GetTreeContainer: function() { return this.ui.treeContainer; },
    Dispose: function() {},
