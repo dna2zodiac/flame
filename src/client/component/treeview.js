@@ -1,5 +1,5 @@
-import {ElemAppendText, ElemEmpty, ElemIcon} from '../logic/util';
-import {DataClient} from '../logic/api';
+const {ElemAppendText, ElemEmpty, ElemIcon} = require('../logic/util');
+const {DataClient} = require('../logic/api');
 
 /*
 <div class="item-thin">
@@ -189,7 +189,7 @@ FolderTree.prototype = {
             //      main/
             const nodeMem = node;
             let possible = Object.keys(node.children).filter(
-               (full: string) => full.startsWith(name0)
+               (full) => full.startsWith(name0)
             );
             let match = name0;
             node = null;
@@ -197,7 +197,7 @@ FolderTree.prototype = {
                const subname = parts.shift();
                match += subname + '/';
                possible = possible.filter(
-                  (full: string) => full.startsWith(match)
+                  (full) => full.startsWith(match)
                );
                if (possible[0] === match) {
                   node = nodeMem.children[match];
@@ -232,7 +232,7 @@ FolderTree.prototype = {
             //      /path/to/file -> path, to
             parts.shift();
             parts.pop();
-            parts.forEach((name: string) => {
+            parts.forEach((name) => {
                const last = that.taskQueue[that.taskQueue.length-1] || { path: '/' };
                that.taskQueue.push({ base: last.path, path: last.path + name + '/', name: name + '/' });
             });
@@ -294,7 +294,7 @@ FolderTree.prototype = {
                waitForNodeLoaded(node);
             } else {
                node.AsyncUnfold().then(
-                  (ok: boolean) => { if (ok) runLoadingTasks(); else e('cannot load: ' + task.path); },
+                  (ok) => { if (ok) runLoadingTasks(); else e('cannot load: ' + task.path); },
                   () => { e('cannot load: ' + task.path); }
                );
             }

@@ -78,7 +78,7 @@ SourceCodeViewer.prototype = {
          if (!syntaxMapByLine[item.L]) syntaxMapByLine[item.L] = [];
          syntaxMapByLine[item.L].push(item);
       });
-      this.lines.forEach((line: string, i: number) => {
+      this.lines.forEach((line, i) => {
          if (i > 0) {
             this.ui.lineNumber.appendChild(document.createElement('br'));
             this.ui.text.appendChild(document.createElement('br'));
@@ -182,7 +182,7 @@ SourceCodeViewer.prototype = {
    computeCache: function() {
       const n = this.ui.text.children.length;
       for (let i = 0; i < n; i += 2) {
-         const el = <HTMLElement>this.ui.text.children[i];
+         const el = this.ui.text.children[i];
          if (this.cache.maxLineWidth < el.offsetWidth) {
             this.cache.maxLineWidth = el.offsetWidth;
          }
@@ -194,7 +194,7 @@ SourceCodeViewer.prototype = {
 
    OnClickLineNumber: function(fn) {
       this.opt.onClickLineNumber = fn;
-   }
+   },
 
    BindMetadata: function(metadata) {
       // TODO: it is a function to highlight line number block
@@ -246,7 +246,7 @@ SourceCodeViewer.prototype = {
    },
 
    checkStartEndLineNumber: function(start, end) {
-      const r: number[] = [-1, -1];
+      const r = [-1, -1];
       const n = this.lines.length;
       if (!start || start === end) return r;
       if (!end) end = start + 1;
@@ -267,7 +267,7 @@ SourceCodeViewer.prototype = {
       if (i < 0) return 0;
       const n = ~~(this.ui.lineNumber.children.length / 2) + 1;
       if (i > n) return 0;
-      const el = <HTMLElement>this.ui.lineNumber.children[i * 2];
+      const el = this.ui.lineNumber.children[i * 2];
       if (i === n && !el) return this.ui.lineNumber.offsetHeight;
       if (!el) return 0;
       return el.offsetTop;
@@ -383,7 +383,7 @@ SourceCodeViewer.prototype = {
       const S = document.getSelection();
       const R = S.getRangeAt(0);
 
-      const ac = <HTMLElement>R.commonAncestorContainer;
+      const ac = R.commonAncestorContainer;
       if (!this.isTextChild(ac)) return null;
       // if (!ac.classList.contains('editor-text')) return null;
 

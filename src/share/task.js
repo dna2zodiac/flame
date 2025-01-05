@@ -73,7 +73,7 @@ TaskRunner.prototype = {
                that.run();
             }
          );
-      } catch (err: any) {
+      } catch (err) {
          task.reject(err);
          this.actor ++;
          this.run();
