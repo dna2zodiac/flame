@@ -74,15 +74,16 @@ module.exports = [
 
    getWebJs('./src/lazac/lang/c.js', 'lazac/lang/c.js'),
    getWebJs('./src/lazac/lang/cpp.js', 'lazac/lang/cpp.js'),
-   getWebJs('./src/lazac/lang/java.js', 'lazac/lang/java.js'),
-   getWebJs('./src/lazac/lang/python.js', 'lazac/lang/python.js'),
-   getWebJs('./src/lazac/lang/javascript.js', 'lazac/lang/javascript.js'),
-   getWebJs('./src/lazac/lang/golang.js', 'lazac/lang/golang.js'),
    getWebJs('./src/lazac/lang/csharp.js', 'lazac/lang/csharp.js'),
+   getWebJs('./src/lazac/lang/css.js', 'lazac/lang/css.js'),
+   getWebJs('./src/lazac/lang/golang.js', 'lazac/lang/golang.js'),
+   getWebJs('./src/lazac/lang/java.js', 'lazac/lang/java.js'),
+   getWebJs('./src/lazac/lang/javascript.js', 'lazac/lang/javascript.js'),
+   getWebJs('./src/lazac/lang/kotlin.js', 'lazac/lang/kotlin.js'),
+   getWebJs('./src/lazac/lang/perl.js', 'lazac/lang/perl.js'),
+   getWebJs('./src/lazac/lang/python.js', 'lazac/lang/python.js'),
    getWebJs('./src/lazac/lang/ruby.js', 'lazac/lang/ruby.js'),
    getWebJs('./src/lazac/lang/rust.js', 'lazac/lang/rust.js'),
-   getWebJs('./src/lazac/lang/css.js', 'lazac/lang/css.js'),
-   getWebJs('./src/lazac/lang/kotlin.js', 'lazac/lang/kotlin.js'),
 
    getNodeJs('./src/server/index.js', 'index.js'),
    getNodeJs('./src/script/analyze.js', 'script/analyze.js')

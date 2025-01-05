@@ -18,6 +18,7 @@ const env = {
    rust: false,
    kotlin: false,
    ruby: false,
+   perl: false,
 };
 
 const that = self;
@@ -49,6 +50,7 @@ function workerProcess(obj) {
    case 'rust': return parseLang('rust', 'FlameRustParser', obj, res);
    case 'kotlin': return parseLang('kotlin', 'FlameKotlinParser', obj, res);
    case 'ruby': return parseLang('ruby', 'FlameRubyParser', obj, res);
+   case 'perl': return parseLang('perl', 'FlamePerlParser', obj, res);
    }
    return Promise.resolve(res);
 }

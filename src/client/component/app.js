@@ -406,6 +406,8 @@ BodyConnector.prototype = {
                cmd = 'kotlin'; break;
             case '.rb':
                cmd = 'ruby'; break;
+            case '.pl':
+               cmd = 'perl'; break;
             }
             if (cmd) {
                Env.worker.Call(
