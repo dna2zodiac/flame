@@ -294,10 +294,15 @@ BodyConnector.prototype = {
       const that = this;
       const btab = this.components.side.ui.tab.Browse;
       btab.tree.opt.switchToBrowseTab = btab.tree.opt.switchToBrowseTab || (() => {
-         if (that.components.side.Tab() !== 'Browse') {
+         const tab = that.components.side.Tab();
+         if (tab && tab !== 'Browse') {
+            return false;
+         }
+         if (!tab) {
             that.components.nav.Touch('Browse');
             that.components.side.Touch('Browse');
          }
+         return true;
       });
       btab.tree.opt.highlightItem = btab.tree.opt.highlightItem || (elem => {
          that.browserTabScrollTo(elem);

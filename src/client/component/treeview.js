@@ -241,8 +241,9 @@ FolderTree.prototype = {
 
          function runLoadingTasks() {
             if (!that.taskQueue.length) {
+               let switched = false;
                if (that.opt.switchToBrowseTab) {
-                  that.opt.switchToBrowseTab();
+                  switched = that.opt.switchToBrowseTab();
                }
                if (lastNode) {
                   const name = path.split('/').pop()
@@ -254,7 +255,7 @@ FolderTree.prototype = {
                      // folder item
                      ch = lastNode.GetDom();
                   }
-                  if (ch && that.opt.highlightItem) {
+                  if (switched && ch && that.opt.highlightItem) {
                      that.opt.highlightItem(ch);
                   }
                   lastNode = null;
