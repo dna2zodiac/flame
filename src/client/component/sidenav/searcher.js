@@ -5,7 +5,8 @@ const {
    ElemAppendText,
    ElemSafeAppendHtml,
    ElemDivMessage,
-   ElemIcon
+   ElemIcon,
+   CopyToClipboard,
 } = require('../../logic/util');
 const {DataClient} = require('../../logic/api');
 
@@ -83,6 +84,7 @@ function SideNavSearcherTab() {
    this.ui = {
       self: Elem('div'),
       box: {
+         share: Elem('button'),
          query: Elem('input'),
          search: Elem('button')
       },
@@ -105,8 +107,11 @@ SideNavSearcherTab.prototype = {
       const box = Elem('div');
       box.className = 'item-thin item-yellow flex-table flex-row';
       this.ui.box.query.className = 'item-input flex11-auto';
+      ElemAppend(this.ui.box.share, ElemIcon('img/share.svg', 12, 12));
+      this.ui.box.share.style.marginRight = '2px';
       ElemAppend(this.ui.box.search, ElemIcon('img/search.svg', 12, 12));
       this.ui.box.search.style.marginRight = '2px';
+      ElemAppend(box, this.ui.box.share);
       ElemAppend(box, this.ui.box.query);
       ElemAppend(box, this.ui.box.search);
       ElemAppend(this.ui.self, box);
@@ -141,6 +146,13 @@ SideNavSearcherTab.prototype = {
          // TODO: handle errors
       });
       return req;
+   },
+
+   Share: function() {
+      const query = this.ui.box.query.value;
+      if (!query) return;
+      const loc = window.location;
+      CopyToClipboard(loc.protocol + '/' + loc.host + '/#?' + encodeURIComponent(query));
    },
 
    Show: function() { this.ui.self.style.display = 'flex'; },

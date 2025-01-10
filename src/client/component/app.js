@@ -214,6 +214,7 @@ BodyConnector.prototype = {
       const stab = this.components.side.ui.tab.Search;
       stab.ui.box.query.addEventListener('keypress', onPressEnterForSearch);
       stab.ui.box.search.addEventListener('click', onClickSearch);
+      stab.ui.box.share.addEventListener('click', onClickShare);
       onHashChange();
       return this;
 
@@ -229,7 +230,12 @@ BodyConnector.prototype = {
             stab.ui.box.query.focus();
             return;
          }
-         window.location.hash = '#?' + encodeURIComponent(query);
+         that.onSearch(query);
+      }
+
+      function onClickShare() {
+         const stab = that.components.side.ui.tab.Search;
+         stab.Share();
       }
 
       function onClickBreadcrumb(evt) {
