@@ -33,9 +33,9 @@ function DecorateBracket(env) {
       ch = token.T;
       if (common_left_bracket.indexOf(ch) >= 0) {
          stack.push({i: i, ch: common_left_right_bracket_map[ch]});
-         if (!token.deco) token.deco = {};
-         token.deco.st = i;
-         token.deco.tag = TAG_BRACKET[ch];
+         if (!token.D) token.D = {};
+         token.D.st = i;
+         token.D.tag = TAG_BRACKET[ch];
       } else if (common_right_bracket.indexOf(ch) >= 0) {
          let pair = stack.pop();
          if (pair.ch !== ch) {
@@ -43,8 +43,8 @@ function DecorateBracket(env) {
              // TODO: if here, what we can do?
          }
          const pairToken = env.tokens[pair.i];
-         if (!pairToken.deco) pairToken.deco = {};
-         pairToken.deco.ed = i+1;
+         if (!pairToken.D) pairToken.D = {};
+         pairToken.D.ed = i+1;
       }
    }
    return env.tokens.length;
@@ -53,8 +53,8 @@ function DecorateBracket(env) {
 function DecorateKeywords(env, keywords) {
    env.tokens.forEach((token) => {
       if (keywords.indexOf(token.T) >= 0) {
-         if (!token.deco) token.deco = {};
-         token.deco.tag = TAG_KEYWORD;
+         if (!token.D) token.D = {};
+         token.D.tag = TAG_KEYWORD;
       }
    });
    return env.tokens.length;
