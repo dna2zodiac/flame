@@ -2,6 +2,9 @@ const {
    SearchNextSkipSpace,
    SearchNextSkipSpacen,
    SearchNextStop,
+   TAG_STRING,
+   TAG_COMMENT,
+   TAG_REGEX,
 } = require('../common');
 const {
    ExtractString,
@@ -12,6 +15,9 @@ const {
    DecorateScope,
    TokensString,
 } = require('../decorator');
+const {
+   CharCount,
+} = require('../convert');
 
 const cpp_extract_feature = {
    '"': [extract_string],
@@ -105,7 +111,7 @@ function decorate_include(env) {
    }
    deco.ed = p + 1;
    deco.data[1] = deco.ed;
-   decoToken.deco = deco;
+   decoToken.D = deco;
    return deco.ed - deco.st;
 }
 
@@ -122,7 +128,57 @@ CppParser.prototype = {
       env.curI = 0;
       DecorateScope(env, c_decorate_feature);
       return env.tokens;
-   }
+   },
+   ConvertTokenToSyntaxItem: function(tokens) {
+      const rs = [];
+      let L = 0, col = 0;
+      for (let i = 0, n = tokens.length; i < n; i++) {
+         const token = tokens[i];
+         const T = token.tag === TAG_COMMENT? token.data:token.T;
+         const multipleLines = (
+            token.tag === TAG_STRING ||
+            token.tag === TAG_COMMENT
+         );
+         if (multipleLines) {
+            // "abc\ -> "abc\\\ndef"
+            // def"           ^^--- new line
+            const lines = T.split('\n');
+            const n = lines.length - 1;
+            lines.forEach((line) => {
+               rs.push({
+                  L: L,
+                  st: col,
+                  ed: col + line.length,
+                  name: token.tag,
+               });
+               L ++;
+               col += line.length;
+               if (n) col = 0;
+            });
+            L --;
+         } else {
+            if (token.D) {
+               switch (token.D.tag) {
+               case '#include': {
+                  const ifn = token.D.data[2];
+                  col += CharCount(tokens, i+1, token.D.data[0]);
+                  rs.push({
+                     L: L, st: T.length+col, ed: T.length+col+ifn.length, name: 'import-file',
+                     data: ifn.substring(1, ifn.length - 1),
+                  });
+                  i = token.D.ed - 1;
+                  break; }
+               }
+            }
+            col += T.length;
+            if (T === '\n') {
+               L ++;
+               col = 0;
+            }
+         }
+      }
+      return rs;
+   },
 }
 
 if (self.document === undefined) {

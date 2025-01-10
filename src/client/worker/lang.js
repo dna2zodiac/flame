@@ -71,7 +71,7 @@ function parseLang(lang, klass, obj, res) {
 
    function _act() {
       const parser = new self[klass]();
-      const tokens = ConvertTokenToSyntaxItem(
+      const tokens = (parser.ConvertTokenToSyntaxItem || ConvertTokenToSyntaxItem)(
          parser.Tokenize(obj.text)
       ).filter(
          x => !!x.name
