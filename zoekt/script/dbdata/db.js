@@ -196,7 +196,7 @@ const clients = {
       port: i_config.DB_PORT,
       user: i_config.DB_USER,
       pass: i_config.DB_PASS,
-      name: 'seven',
+      name: i_config.DB_NAME,
       ssl: i_config.DB_SSL,
    }),
 };
