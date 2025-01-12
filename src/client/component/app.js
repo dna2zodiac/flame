@@ -426,12 +426,7 @@ BodyConnector.prototype = {
                   { cmd: cmd, text: obj.data }
                ).then(res => {
                   console.log(res.id, res);
-                  that.editor.SetStyle({
-                     '.flame-editor-string': { color: '#32598b' },
-                     '.flame-editor-comment': { color: 'green' },
-                     '.flame-editor-regex': { color: '#8b3263' },
-                     '.flame-editor-import-file': { color: '#32598b' },
-                  });
+                  that.editor.SetStyle();
                   that.editor.RenderSyntax(res.tokens);
                });
             }

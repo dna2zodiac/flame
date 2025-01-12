@@ -2,6 +2,7 @@ const {ElemEmpty, ElemAppendText} = require('../logic/util');
 const {StyleMap} = require('../style/style');
 const {SyntaxItem} = require('../../share/common');
 const {BinarySearch} = require('../../share/algorithm');
+const {styleObjects} = require('../style/editor');
 
 /*
 export interface Point {
@@ -53,6 +54,7 @@ SourceCodeViewer.prototype = {
    },
 
    SetStyle: function(styleMap) {
+      if (!styleMap) styleMap = styleObjects;
       this.ui.style.Compile(styleMap);
       const styleDom = this.ui.style.GetDom();
       if (!styleDom.parentNode) {
