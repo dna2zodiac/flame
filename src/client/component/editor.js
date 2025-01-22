@@ -46,7 +46,8 @@ function SourceCodeViewer(opt) {
    this.renderStat = {
       busy: false,
       group: 0,
-      queue: []
+      queue: [],
+      postQueue: []
    };
 }
 SourceCodeViewer.prototype = {
@@ -72,6 +73,15 @@ SourceCodeViewer.prototype = {
       }
    },
 
+   _ActPostRender: function() {
+      while (this.renderStat.postQueue.length) {
+         const post = this.renderStat.postQueue.shift();
+         switch(post.act) {
+         case 'scroll': this._ScrollToLine(post.st || 0, post.ed || 0); break;
+         case 'highlight': this._LineHighlight(post.st, post.ed, post.ap); break;
+         }
+      }
+   },
    _RenderSyntaxSlice: async function(syntaxMapByLine, stI, edI, groupId) {
       // stop current render if next render comes
       if (groupId !== this.renderStat.group) return;
@@ -128,7 +138,12 @@ SourceCodeViewer.prototype = {
       // use async function to render lines
       // use task queue to render lines; between tasks, ensure UI reponsive
       if (this.renderStat.busy) return;
-      if (!this.renderStat.queue.length) return;
+      if (!this.renderStat.queue.length) {
+         if (groupId === this.renderStat.group) {
+            this._ActPostRender();
+         }
+         return;
+      }
       this.renderStat.busy = true;
       const stI = this.renderStat.queue.shift();
       // guarantee this await no throwing exceptions
@@ -309,7 +324,7 @@ SourceCodeViewer.prototype = {
       return el.offsetTop;
    },
 
-   LineHighlight: function(startLineNumber, endLineNumber, appendMode) {
+   _LineHighlight: function(startLineNumber, endLineNumber, appendMode) {
       // if appendMode is true, create a new div
       // otherwise remove all previous divs and then use a new one for highlight
       const sted = this.checkStartEndLineNumber(
@@ -337,8 +352,21 @@ SourceCodeViewer.prototype = {
       this.ui.highlight.appendChild(div);
       divs.push(div);
    },
+   LineHighlight: function(startLineNumber, endLineNumber, appendMode) {
+      this.renderStat.postQueue = this.renderStat.postQueue.filter(function (z) {
+         return z.act !== 'highlight';
+      });
+      this.renderStat.postQueue.push({
+         act: 'highlight',
+         st: startLineNumber,
+         ed: endLineNumber,
+         ap: appendMode
+      });
+      // XXX: risk to pass null
+      this._RenderSyntax(null, this.renderStat.group);
+   },
 
-   ScrollToLine: function(startLineNumber, endLineNumber) {
+   _ScrollToLine: function(startLineNumber, endLineNumber) {
       const sted = this.checkStartEndLineNumber(
          startLineNumber, endLineNumber
       );
@@ -349,7 +377,7 @@ SourceCodeViewer.prototype = {
       const curH = this.ui.container.offsetHeight;
       const lineItop = sted[0] - 1, lineIbottom = sted[1] - 1;
       let top = this.getLineTop(lineItop), bottom = this.getLineTop(lineIbottom);
-      var x = this.ui.container.scrollLeft;
+      let x = this.ui.container.scrollLeft;
       if (curTop > top) {
          this.ui.container.scrollTo(x, top);
       } else if (curTop + curH < bottom) {
@@ -359,6 +387,18 @@ SourceCodeViewer.prototype = {
       }
       // this.ui.extra.highlight.line.style.display = 'none';
       // this.LineHighlight(startLineNumber, endLineNumber);
+   },
+   ScrollToLine: function(startLineNumber, endLineNumber) {
+      this.renderStat.postQueue = this.renderStat.postQueue.filter(function (z) {
+         return z.act !== 'scroll';
+      });
+      this.renderStat.postQueue.push({
+         act: 'scroll',
+         st: startLineNumber,
+         ed: endLineNumber
+      });
+      // XXX: risk to pass null
+      this._RenderSyntax(null, this.renderStat.group);
    },
 
    cacheSourceCodeFont: function() {
