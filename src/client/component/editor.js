@@ -18,6 +18,8 @@ export interface Range {
 }
 */
 
+const LINE_GROUP = 200;
+
 function SourceCodeViewer(opt) {
    this.opt = Object.assign({}, opt);
    this.lines = [];
@@ -40,6 +42,11 @@ function SourceCodeViewer(opt) {
    this.cache = {
       font: '',
       maxLineWidth: 0
+   };
+   this.renderStat = {
+      busy: false,
+      group: 0,
+      queue: []
    };
 }
 SourceCodeViewer.prototype = {
@@ -65,22 +72,12 @@ SourceCodeViewer.prototype = {
       }
    },
 
-   RenderSyntax: function(syntaxMap) {
-      // syntaxMap [ { L, st, ed, name } ... ]
-      // e.g. [ { L: 0, st: 0, ed: 4, name: "comment" } ]
-      // "this is a test" -> <span>
-      //                        <span class="flame-editor-comment">this</span>
-      //                        <span> is a test</span>
-      //                     </span>
-      ElemEmpty(this.ui.lineNumber);
-      ElemEmpty(this.ui.text);
-
-      const syntaxMapByLine = {};
-      syntaxMap.forEach(item => {
-         if (!syntaxMapByLine[item.L]) syntaxMapByLine[item.L] = [];
-         syntaxMapByLine[item.L].push(item);
-      });
-      this.lines.forEach((line, i) => {
+   _RenderSyntaxSlice: async function(syntaxMapByLine, stI, edI, groupId) {
+      // stop current render if next render comes
+      if (groupId !== this.renderStat.group) return;
+      const n = this.lines.length;
+      for (let i = stI; i < edI && i < n; i++) {
+         const line = this.lines[i];
          if (i > 0) {
             this.ui.lineNumber.appendChild(document.createElement('br'));
             this.ui.text.appendChild(document.createElement('br'));
@@ -125,7 +122,44 @@ SourceCodeViewer.prototype = {
             }
          }
          this.ui.text.appendChild(span);
+      }
+   },
+   _RenderSyntax: async function(syntaxMapByLine, groupId) {
+      // use async function to render lines
+      // use task queue to render lines; between tasks, ensure UI reponsive
+      if (this.renderStat.busy) return;
+      if (!this.renderStat.queue.length) return;
+      this.renderStat.busy = true;
+      const stI = this.renderStat.queue.shift();
+      // guarantee this await no throwing exceptions
+      await this._RenderSyntaxSlice(syntaxMapByLine, stI, stI+LINE_GROUP, groupId);
+      this.renderStat.busy = false;
+      if (groupId !== this.renderStat.group) groupId = this.renderStat.group;
+      this._RenderSyntax(syntaxMapByLine, groupId);
+   },
+   RenderSyntax: async function(syntaxMap) {
+      // syntaxMap [ { L, st, ed, name } ... ]
+      // e.g. [ { L: 0, st: 0, ed: 4, name: "comment" } ]
+      // "this is a test" -> <span>
+      //                        <span class="flame-editor-comment">this</span>
+      //                        <span> is a test</span>
+      //                     </span>
+      ElemEmpty(this.ui.lineNumber);
+      ElemEmpty(this.ui.text);
+
+      const syntaxMapByLine = {};
+      syntaxMap.forEach(item => {
+         if (!syntaxMapByLine[item.L]) syntaxMapByLine[item.L] = [];
+         syntaxMapByLine[item.L].push(item);
       });
+
+      // render, if new render, stop prev render
+      this.renderStat.group = (this.renderStat.group + 1) % 10000;
+      this.renderStat.queue = [];
+      for (let i = 0, n = this.lines.length; i < n; i += LINE_GROUP) {
+         this.renderStat.queue.push(i);
+      }
+      this._RenderSyntax(syntaxMapByLine, this.renderStat.group);
    },
 
    Render: function(text) {
