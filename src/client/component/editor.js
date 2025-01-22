@@ -353,9 +353,11 @@ SourceCodeViewer.prototype = {
       divs.push(div);
    },
    LineHighlight: function(startLineNumber, endLineNumber, appendMode) {
-      this.renderStat.postQueue = this.renderStat.postQueue.filter(function (z) {
-         return z.act !== 'highlight';
-      });
+      if (!appendMode) {
+         this.renderStat.postQueue = this.renderStat.postQueue.filter(function (z) {
+            return z.act !== 'highlight';
+         });
+      }
       this.renderStat.postQueue.push({
          act: 'highlight',
          st: startLineNumber,
