@@ -8,6 +8,7 @@ const {
 function SideNavBookmarkTab() {
    this.ui = {
       self: Elem('div'),
+      list: Elem('div'),
       btn: {
          add: Elem('button')
       }
@@ -24,28 +25,14 @@ SideNavBookmarkTab.prototype = {
       const div = Elem('div');
       div.className = 'item-thin item-yellow';
       ElemAppendText(div, 'Bookmark');
+      ElemAppendText(div, ' ');
+      ElemAppendText(this.ui.btn.add, '+');
+      ElemAppend(div, this.ui.btn.add);
       ElemAppend(this.ui.self, div);
 
-      const bar = Elem('div');
-      ElemAppendText(this.ui.btn.add, 'Add');
-      ElemAppend(bar, this.ui.btn.add);
-      ElemAppend(this.ui.self, bar);
-
-      const box = Elem('div');
+      const box = this.ui.list;
       box.className = 'flex10-auto flex-h0 scrollable-y';
       ElemAppend(this.ui.self, box);
-
-      /* dirty event listener */
-      const that = this;
-      this.ui.btn.add.addEventListener('click', onAdd);
-      function onAdd() {
-         const hash = that._parseHash();
-         const name = hash.path.split('/').pop();
-         const item = new BookmarkItem(name.length > 100 ? (
-            name.substring(0, 100) + ' ...'
-         ) : name, hash.path, hash.L, '');
-         ElemAppend(box, item.GetDom());
-      }
    },
    // dup from src/client/component/app.js
    _parseHash: function() {
@@ -65,6 +52,21 @@ SideNavBookmarkTab.prototype = {
    Show: function() { this.ui.self.style.display = 'flex'; },
    Hide: function() { this.ui.self.style.display = 'none'; },
 };
+
+/*
+db: bookmark-<year>-<month>-<day>-<random>
+{
+   "T": <timestamp>,
+   "N": <name>,
+   "L": [{
+      "P": <path>,
+      "L": [{
+         "Y": <line-number>,
+         "X": <line-text>
+      }]
+   }]
+}
+*/
 
 function BookmarkItem(name, path, L, line) {
    this.ui = {
@@ -86,11 +88,13 @@ BookmarkItem.prototype = {
       ElemAppendText(a, name);
       a.href = '#' + path;
 
+      const text = Elem('div');
       const aL = Elem('a');
+      text.className = 'text-ellipsis';
       ElemAppendText(aL, '' + L);
       aL.href = '#' + path + '#L=' + L;
-
-      const text = Elem('div');
+      ElemAppend(text, aL);
+      ElemAppendText(text, ' ');
       ElemAppendText(text, line);
 
       ElemAppendText(this.ui.btn.close, 'X');
@@ -99,8 +103,7 @@ BookmarkItem.prototype = {
       ElemAppendText(this.ui.self, ' ');
       ElemAppend(this.ui.self, a);
       ElemAppendText(this.ui.self, ' ');
-      if (L) ElemAppend(this.ui.self, aL);
-      ElemAppend(this.ui.self, text);
+      if (L) ElemAppend(this.ui.self, text);
 
       /* dirty event listener */
       a.style.wordBreak = 'break-all';

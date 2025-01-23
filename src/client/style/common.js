@@ -266,6 +266,12 @@ const styleObjects = {
    '.folder-fold-btn.active': {
       transform: 'rotate(180deg)',
    },
+   '.text-ellipsis': {
+      width: '100%',
+      'white-space': 'nowrap',
+      'text-overflow': 'ellipsis',
+      'overflow-x': 'hidden',
+   },
    '.search-item a': {
       'text-decoration': 'none',
       color: 'black',

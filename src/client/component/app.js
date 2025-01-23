@@ -1,11 +1,18 @@
 const {Env} = require('../logic/global');
 const {HashL} = require('../logic/hash');
 const {BreadCrumb} = require('./breadcrumb');
-const {ElemEmpty, ElemFlash, GetOS} = require('../logic/util');
+const {
+   Elem,
+   ElemEmpty,
+   ElemFlash,
+   ElemAppend,
+   ElemAppendText,
+   GetOS
+} = require('../logic/util');
 const {DataClient} = require('../logic/api');
 const {SideNavSearcherTab} = require('./sidenav/searcher');
 const {SideNavBrowserTab} = require('./sidenav/browser');
-const {SideNavBookmarkTab} = require('./sidenav/bookmark');
+const {SideNavBookmarkTab, BookmarkItem} = require('./sidenav/bookmark');
 const {SideNavAnalyzerTab} = require('./sidenav/analyzer');
 const {SideNavTeamTab} = require('./sidenav/team');
 const {SideNavSettingsTab} = require('./sidenav/settings');
@@ -216,6 +223,9 @@ BodyConnector.prototype = {
       stab.ui.box.search.addEventListener('click', onClickSearch);
       stab.ui.box.share.addEventListener('click', onClickShare);
       onHashChange();
+
+      const btab = this.components.side.ui.tab.Bookmark;
+      btab.ui.btn.add.addEventListener('click', onBookmarkAdd);
       return this;
 
       function onPressEnterForSearch(evt) {
@@ -236,6 +246,21 @@ BodyConnector.prototype = {
       function onClickShare() {
          const stab = that.components.side.ui.tab.Search;
          stab.Share();
+      }
+
+      function onBookmarkAdd() {
+         const hash = that.parseHash();
+         const hashL = new HashL(hash.L);
+         const range = hashL.GetRange();
+         const line = (that.editor.GetLine(range[0]) || '').trim();
+         const name = hash.path.split('/').pop();
+         const item = new BookmarkItem(name.length > 100 ? (
+               name.substring(0, 100) + ' ...'
+            ) : name, hash.path, hash.L, line.length > 100 ? (
+               line.substring(0, 100) + ' ...'
+            ) : line
+         );
+         ElemAppend(btab.ui.list, item.GetDom());
       }
 
       function onClickBreadcrumb(evt) {
