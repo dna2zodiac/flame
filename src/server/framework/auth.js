@@ -1,6 +1,6 @@
 const i_fs = require('fs');
 const i_path = require('path');
-const i_uuid = require('uuid');
+const i_crypto = require('crypto');
 
 const i_util = require('./util');
 
@@ -87,7 +87,7 @@ const api = {
          sessionId = '';
       }
       if (!sessionId) {
-         sessionId = i_uuid.v4();
+         sessionId = i_crypto.randomUUID();
          const obj = { mtime: new Date().getTime(), uuid: sessionId };
          sessionCache[username] = obj;
          await i_util.fileOp.write(

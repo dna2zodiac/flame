@@ -1,6 +1,4 @@
 const i_path = require('path');
-const i_uglifyjs_webpack_plugin = require('uglifyjs-webpack-plugin');
-const i_javascript_obfuscator_plugin = require('webpack-obfuscator');
 
 function getWebJs(path, outname) {
    return {
@@ -16,25 +14,6 @@ function getWebJs(path, outname) {
          path: i_path.resolve(__dirname, 'dist', 'static')
       },
       plugins: [
-         new i_uglifyjs_webpack_plugin({
-            sourceMap: true,
-            uglifyOptions: {
-               ie8: false,
-               ecma: 5,
-               output: {
-                  comments: false,
-                  beautify: false
-               },
-               compress: true
-            }
-         }),
-         new i_javascript_obfuscator_plugin({
-            compact: true,
-            transformObjectKeys: true,
-            stringArray: true,
-            stringArrayEncoding: ['base64'],
-            rotateUnicodeArray: true
-         })
       ]
    };
 }
@@ -52,18 +31,6 @@ function getNodeJs(path, outname) {
          path: i_path.resolve(__dirname, 'dist')
       },
       plugins: [
-         new i_uglifyjs_webpack_plugin({
-            sourceMap: true,
-            uglifyOptions: {
-               ie8: false,
-               ecma: 6,
-               output: {
-                  comments: false,
-                  beautify: false
-               },
-               compress: true
-            }
-         })
       ]
    };
 }
