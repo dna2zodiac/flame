@@ -34,21 +34,6 @@ SideNavBookmarkTab.prototype = {
       box.className = 'flex10-auto flex-h0 scrollable-y';
       ElemAppend(this.ui.self, box);
    },
-   // dup from src/client/component/app.js
-   _parseHash: function() {
-      const parts = window.location.hash.split('#');
-      parts.shift();
-      const obj = {};
-      obj.path = parts[0];
-      parts.forEach(part => {
-         const kv = part.split('=');
-         obj[decodeURIComponent(kv[0] || '.')] = (
-            decodeURIComponent(kv[1] || '')
-         );
-      });
-      return obj;
-   },
-
    Show: function() { this.ui.self.style.display = 'flex'; },
    Hide: function() { this.ui.self.style.display = 'none'; },
 };
