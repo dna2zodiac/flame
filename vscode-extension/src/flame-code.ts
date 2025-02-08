@@ -1,3 +1,37 @@
+/*
+in extension activate:
+   const flameCodeNavigator = new FlameCodeNavigator(context.extensionUri);
+   const provider = vscode.window.registerWebviewViewProvider(
+      'code-flame-navigator', flameCodeNavigator
+   );
+   const disposable = vscode.commands.registerCommand('codeflame.show', () => {
+      vscode.window.showInformationMessage('Hello World from code-flame!');
+      vscode.commands.executeCommand('code-flame-navigator.focus');
+   });
+   context.subscriptions.push(provider);
+   context.subscriptions.push(disposable);
+
+in package.json contributes section, add:
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "code-flame",
+          "title": "Flame Code Navigator",
+          "icon": "$(preview)"
+        }
+      ]
+    },
+    "views": {
+      "code-flame": [
+        {
+          "type": "webview",
+          "id": "code-flame-navigator",
+          "name": "Flame Code Navigator",
+          "visibility": "visible"
+        }
+      ]
+    }
+*/
 import * as vscode from 'vscode';
 
 export class FlameCodeNavigator implements vscode.WebviewViewProvider {
