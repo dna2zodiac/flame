@@ -24,7 +24,26 @@
         "command": "codeflame.show",
         "title": "Show Flame Code Navigator"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "code-flame",
+          "title": "Flame Code Navigator",
+          "icon": "$(preview)"
+        }
+      ]
+    },
+    "views": {
+      "code-flame": [
+        {
+          "type": "webview",
+          "id": "code-flame-navigator",
+          "name": "Flame Code Navigator",
+          "visibility": "visible"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
