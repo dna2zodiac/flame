@@ -3,8 +3,11 @@
   "description": "Source Code Comprehension Toolkits (SCCT)",
   "main": "index.js",
   "devDependencies": {
+    "generator-code": "^1.11.6",
+    "vsce": "^2.15.0",
     "webpack": "^5.45.1",
-    "webpack-cli": "^4.7.2"
+    "webpack-cli": "^4.7.2",
+    "yo": "^5.1.0"
   },
   "scripts": {
     "test": "echo 'No Test'"
