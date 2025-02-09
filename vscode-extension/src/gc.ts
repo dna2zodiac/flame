@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-class GarbageCollector {
+export class GarbageCollector {
    private _disposables: { [key: string]: any; } = {};
 
    constructor() {

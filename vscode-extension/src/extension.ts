@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 
 import { FlameCodeNavigator } from './flame-code-webpanel';
-import { GarbadgeCollector } from './gc';
+import { GarbageCollector } from './gc';
 
-let gc?: GarbageCollector;
+let gc: GarbageCollector | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
 
