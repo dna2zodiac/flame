@@ -2,12 +2,13 @@ import * as vscode from 'vscode';
 
 import { FlameCodeNavigator } from './flame-code-webpanel';
 import { GarbageCollector } from './gc';
+import { ReadOnlyMode } from './read-only';
 
 let gc: GarbageCollector | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
 
-   console.log('Congratulations, your extension "lab-seven-codeflame" is now active!');
+   console.log(`[codeflame:I] init codeflame core module ...`);
    gc = new GarbageCollector();
 
    const cmdCodeFlameShow = vscode.commands.registerCommand('codeflame.show', () => {
@@ -22,9 +23,12 @@ export function activate(context: vscode.ExtensionContext) {
    statusBarItem.command = 'codeflame.show';
    statusBarItem.show();
    gc.record(context, statusBarItem, 'status:item');
+
+   ReadOnlyMode.init(context, gc);
 }
 
 export function deactivate() {
+   console.log(`[codeflame:I] deactivate codeflame extension ...`);
    if (gc) gc.dispose();
    gc = undefined;
 }
