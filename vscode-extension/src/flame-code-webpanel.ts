@@ -15,7 +15,7 @@ export class FlameCodeNavigator {
          return;
       }
       const panel = vscode.window.createWebviewPanel(
-         'textPreview',
+         'flameCodeNavigatorWebviewPanel',
          'Flame Code Navigator',
          VIEW_COLUMN,
          { enableScripts: true }
@@ -29,7 +29,7 @@ export class FlameCodeNavigator {
       this._update();
       this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
       this._panel.onDidChangeViewState(evt => {
-         if (this._panel.visible) this._update();
+         if (this.isReady()) this._update();
       }, null, this._disposables);
       vscode.window.onDidChangeActiveTextEditor(() => {
          if (this.isReady()) this._update();
@@ -42,7 +42,8 @@ export class FlameCodeNavigator {
    }
 
    public isReady() {
-      return !!this._panel;
+      if (!this._panel) return false;
+      return !!this._panel.visible;
    }
 
    public dispose() {
