@@ -1,4 +1,4 @@
-const {IGNORE_DIRS} = require('../../share/env');
+const {IsIgnored} = require('../../share/env');
 
 const iUtil = require('../framework/util');
 const iPath = require('path');
@@ -18,7 +18,9 @@ class LocalFSContentProvider {
 
    async GetFileContent(project, path, rev) {
       if (!project) throw new Error('no project');
-      if (!path || path.endsWith('/')) throw new Error('invalid path');
+      if (!path || path.endsWith('/') || IsIgnored(path)) {
+         throw new Error('invalid path');
+      }
       const basePath = await iUtil.fileOp.realpath(iPath.join(this.baseDir, project));
       const realPath = await iUtil.fileOp.realpath(iPath.join(basePath, ...path.split('/')));
       if (!realPath.startsWith(basePath)) {
@@ -124,7 +126,7 @@ class LocalFSContentProvider {
          const st = await iUtil.fileOp.stat(rp).catch(err => {});
          if (!st) continue;
          if (st.isDirectory()) {
-            if (IGNORE_DIRS.includes(name)) continue;
+            if (IsIgnored(name)) continue;
             let full = name + '/';
             r.push(full);
          } else {

@@ -1,4 +1,4 @@
-const {IGNORE_DIRS} = require('../../share/env');
+const {IsIgnored} = require('../../share/env');
 const {Request} = require('../curl');
 
 const iUtil = require('../framework/util');
@@ -35,7 +35,9 @@ class ModifiedZoektContentProvider {
 
    async GetFileContent(project, path, rev) {
       if (!project) throw new Error('no project');
-      if (!path || path.endsWith('/')) throw new Error('invalid path');
+      if (!path || path.endsWith('/') || IsIgnored(path)) {
+         throw new Error('invalid path');
+      }
       const reqOpt = {};
       reqOpt.data_type = 'json';
       reqOpt.url = buildPath(this.opt.baseUrl, '/scmprint', {
@@ -101,8 +103,8 @@ class ModifiedZoektContentProvider {
       // TODO: how to deal with huge folder?
       const json = await Request(reqOpt);
       if (!json || json.error) throw json;
-      // TODO: filter special folder like .git, ...
-      const list = json.contents.filter((x) => !!x);
+      // XXX: filter special folder like .git, ...
+      const list = json.contents.filter((x) => !!x && !IsIgnored(x.name));
       return list;
    }
 }
