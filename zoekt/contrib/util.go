@@ -208,6 +208,25 @@ func FileLen(filepath string) (int64, error) {
 	return info.Size(), nil
 }
 
+func DirList(filepath string) ([]string, error) {
+	info, err := os.Stat(filepath)
+	if err != nil {
+		return nil, err
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("not a folder")
+	}
+	entities, err := ioutil.ReadDir(filepath)
+	if err != nil {
+		return nil, err
+	}
+	list := make([]string, len(entities))
+	for _, entry := range entities {
+		list = append(list, entry.Name())
+	}
+	return list, nil
+}
+
 func PrepareDirectory(dirpath string) error {
 	fileinfo, err := os.Stat(dirpath)
 	if os.IsNotExist(err) {

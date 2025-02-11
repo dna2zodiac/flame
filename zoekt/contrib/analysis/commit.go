@@ -277,6 +277,17 @@ func (p *GitProject) GetCommitDetails (commitId string) (*CommitDetails, error) 
 	return details, nil
 }
 
+func (p *FlatProject) GetCommitDetails (commitId string) (*CommitDetails, error) {
+	details := &CommitDetails{}
+	details.Id = commitId
+	details.Timestamp = 0
+	details.Author = "(unknown)"
+	details.Title = ""
+	details.Description = ""
+	details.CommitFiles = make([]*CommitFileInfo, 0)
+	return details, nil
+}
+
 // ref: contrib/analysis/metadata.go
 // define folder structure; /path/to/repo/.<type>/.zoekt/index
 // TODO: add "r:commit"
@@ -291,3 +302,7 @@ func (p *GitProject) SearchCommits(ctx context.Context, query string, num int) (
 	return contrib.Search(path, ctx, query, num)
 }
 
+func (p *FlatProject) SearchCommits(ctx context.Context, query string, num int) (*zoekt.SearchResult, error) {
+	path := filepath.Join(p.BaseDir, ".git", ".zoekt", "index")
+	return contrib.Search(path, ctx, query, num)
+}

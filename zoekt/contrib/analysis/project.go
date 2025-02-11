@@ -113,8 +113,7 @@ func NewProject (projectName string, baseDir string) IProject {
 		getP4ProjectOptions(baseDir, &options)
 		return NewP4Project(projectName, baseDir, options)
 	}
-	// not support yet
-	return nil
+	return NewFlatProject(projectName, baseDir, options)
 }
 
 var gitRemoteMatcher = regexp.MustCompile(`^origin\s+(.*)\s+\([a-z]+\)$`)
@@ -1155,6 +1154,138 @@ func (p *GitProject) GetDirContents (path, revision string) ([]string, error) {
 	return list, nil
 }
 
+// FlatProject /////////////////////////////////////////////////////////////////
+type FlatProject struct {
+	Name string
+	BaseDir string
+}
+
+func NewFlatProject (projectName string, baseDir string, options map[string]string) *FlatProject {
+	// baseDir: absolute path
+	p := &FlatProject{projectName, baseDir};
+	info, err := os.Stat(baseDir)
+	if err == nil {
+		if !info.IsDir() {
+			log.Printf("P/%s: [E] %s is a file\n", projectName, baseDir)
+			return nil
+		}
+	}
+	return p
+}
+
+func (p *FlatProject) GetName () string {
+	return p.Name
+}
+
+func (p *FlatProject) GetBaseDir () string {
+	return p.BaseDir
+}
+
+func (p *FlatProject) GetMetadataDir () string {
+	return filepath.Join(p.BaseDir, ".zoekt")
+}
+
+func (p *FlatProject) Sync () (map[string]string, error) {
+	updatedList := make(map[string]string)
+	fileinfo, err := os.Stat(p.BaseDir)
+	if err != nil {
+		return updatedList, err
+	}
+	if !fileinfo.IsDir() {
+		return updatedList, fmt.Errorf("P/%s: [E] the flat project is not ready", p.Name)
+	}
+	return updatedList, err
+}
+
+func (p *FlatProject) Compile () error {
+	return nil
+}
+
+func (p *FlatProject) GetProjectType () string {
+	return "flat"
+}
+
+func (p *FlatProject) GetFileTextContents (path, revision string) (string, error) {
+	B, err := p.GetFileBinaryContents(path, revision)
+	if err != nil {
+		return "", err
+	}
+	T := string(B)
+	if strings.Index(T, "\x00") >= 0 {
+		return "", fmt.Errorf("binary")
+	}
+	return T, nil
+}
+
+func (p *FlatProject) GetFileBinaryContents (path, revision string) ([]byte, error) {
+	L, err := p.GetFileLength(path, revision)
+	if err != nil {
+		return nil, err
+	}
+	if L > 1024 * 1024 * 10 {
+		return nil, fmt.Errorf("larger than 10 MB")
+	}
+	F := filepath.Join(p.BaseDir, path)
+	B, err := os.ReadFile(F)
+	if err != nil {
+		return nil, err
+	}
+	return B, nil
+}
+
+func (p *FlatProject) GetFileHash (path, revision string) (string, error) {
+	F := filepath.Join(p.BaseDir, path)
+	hash, err := contrib.FileHash(F)
+	return hash, err
+}
+
+func (p *FlatProject) GetFileLength (path, revision string) (int64, error) {
+	F := filepath.Join(p.BaseDir, path)
+	L, err := contrib.FileLen(F)
+	if err != nil {
+		return -1, err
+	}
+	return L, err
+}
+
+func (p *FlatProject) GetFileBlameInfo (path, revision string, startLine, endLine int) ([]*BlameDetails, error) {
+	blames := make([]*BlameDetails, 0)
+	return blames, nil
+}
+
+func (p *FlatProject) GetFileCommitInfo (path string, offset, N int) ([]string, error) {
+	commits := make([]string, 0)
+	return commits, nil
+}
+
+func (p *FlatProject) GetDirContents (path, revision string) ([]string, error) {
+	F := filepath.Join(p.BaseDir, path)
+	listRaw, err := contrib.DirList(F)
+	list := make([]string, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, line := range listRaw {
+		if len(line) == 0 {
+			continue
+		}
+		fullPath := filepath.Join(p.BaseDir, path, line)
+		info, err := os.Stat(fullPath)
+		if err == nil {
+			// XXX: fix for windows? line.replaceAll("\\", "/")
+			if info.IsDir() {
+				line = line + "/"
+				list = append(list, line)
+				continue
+			}
+		}
+		list = append(list, line)
+	}
+	return list, nil
+}
+
+// Utils ///////////////////////////////////////
 func doWalk (baseDir string, ignoredDir string, updatedList *map[string]string) error {
 	return filepath.Walk(baseDir, func (path string, info os.FileInfo, err error) error {
 		if err != nil {

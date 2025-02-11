@@ -329,6 +329,8 @@ func (s *Server) serveScmPrint(w http.ResponseWriter, r *http.Request) {
 		if v == nil { noProject = true }
 	case *analysis.GitProject:
 		if v == nil { noProject = true }
+	case *analysis.FlatProject:
+		if v == nil { noProject = true }
 	default:
 		noProject = true
 	}

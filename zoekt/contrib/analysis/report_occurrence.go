@@ -55,6 +55,10 @@ func (p *GitProject) GetOccurrenceReport(name string) (*OccurrenceReport, error)
 	return getOccurrenceReport(p, name)
 }
 
+func (p *FlatProject) GetOccurrenceReport(name string) (*OccurrenceReport, error) {
+	return getOccurrenceReport(p, name)
+}
+
 func stringContains(list []string, a string) bool {
 	for _, one := range list {
 		if one == a { return true }
@@ -160,6 +164,10 @@ func (p *P4Project) GenOccurrenceReport(name string, items []string) error {
 }
 
 func (p *GitProject) GenOccurrenceReport(name string, items []string) error {
+	return genOccurrenceReport(p, name, items)
+}
+
+func (p *FlatProject) GenOccurrenceReport(name string, items []string) error {
 	return genOccurrenceReport(p, name, items)
 }
 
