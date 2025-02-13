@@ -292,12 +292,14 @@ RubyParser.prototype = {
    },
 };
 
-if (self.document === undefined) {
-   const flameObj = self;
-   flameObj.FlameRubyParser = RubyParser;
-} else {
-   const flameObj = window;
-   flameObj.FlameRubyParser = RubyParser;
-}
+const flameObj = (
+   typeof(self) === 'undefined' ? (
+      typeof(window) === 'undefined' ? {} : window
+   ) : self
+);
+flameObj.FlameRubyParser = RubyParser;
 
-module.exports = { RubyParser, };
+module.exports = {
+   RubyParser,
+   Parser: RubyParser,
+};

@@ -181,14 +181,14 @@ CppParser.prototype = {
    },
 }
 
-if (self.document === undefined) {
-   const flameObj = self;
-   flameObj.FlameCppParser = CppParser;
-} else {
-   const flameObj = window;
-   flameObj.FlameCppParser = CppParser;
-}
+const flameObj = (
+   typeof(self) === 'undefined' ? (
+      typeof(window) === 'undefined' ? {} : window
+   ) : self
+);
+flameObj.FlameCppParser = CppParser;
 
 module.exports = {
    CppParser,
+   Parser: CppParser,
 };

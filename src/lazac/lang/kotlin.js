@@ -97,12 +97,14 @@ KotlinParser.prototype = {
    },
 };
 
-if (self.document === undefined) {
-   const flameObj = self;
-   flameObj.FlameKotlinParser = KotlinParser;
-} else {
-   const flameObj = window;
-   flameObj.FlameKotlinParser = KotlinParser;
-}
+const flameObj = (
+   typeof(self) === 'undefined' ? (
+      typeof(window) === 'undefined' ? {} : window
+   ) : self
+);
+flameObj.FlameKotlinParser = KotlinParser;
 
-module.exports = { KotlinParser, };
+module.exports = {
+   KotlinParser,
+   Parser: KotlinParser,
+};

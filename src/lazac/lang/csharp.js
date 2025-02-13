@@ -132,14 +132,14 @@ CSharpParser.prototype = {
    },
 };
 
-if (self.document === undefined) {
-   const flameObj = self;
-   flameObj.FlameCSharpParser = CSharpParser;
-} else {
-   const flameObj = window;
-   flameObj.FlameCSharpParser = CSharpParser;
-}
+const flameObj = (
+   typeof(self) === 'undefined' ? (
+      typeof(window) === 'undefined' ? {} : window
+   ) : self
+);
+flameObj.FlameCSharpParser = CSharpParser;
 
 module.exports = {
    CSharpParser,
+   Parser: CSharpParser,
 };

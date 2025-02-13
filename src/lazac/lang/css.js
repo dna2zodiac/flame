@@ -57,12 +57,14 @@ CssParser.prototype = {
    },
 };
 
-if (self.document === undefined) {
-   const flameObj = self;
-   flameObj.FlameCssParser = CssParser;
-} else {
-   const flameObj = window;
-   flameObj.FlameCssParser = CssParser;
-}
+const flameObj = (
+   typeof(self) === 'undefined' ? (
+      typeof(window) === 'undefined' ? {} : window
+   ) : self
+);
+flameObj.FlameCssParser = CssParser;
 
-module.exports = { CssParser, };
+module.exports = {
+   CssParser,
+   Parser: CssParser,
+};

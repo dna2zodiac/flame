@@ -79,12 +79,14 @@ PerlParser.prototype = {
    },
 };
 
-if (self.document === undefined) {
-   const flameObj = self;
-   flameObj.FlamePerlParser = PerlParser;
-} else {
-   const flameObj = window;
-   flameObj.FlamePerlParser = PerlParser;
-}
+const flameObj = (
+   typeof(self) === 'undefined' ? (
+      typeof(window) === 'undefined' ? {} : window
+   ) : self
+);
+flameObj.FlamePerlParser = PerlParser;
 
-module.exports = { PerlParser, };
+module.exports = {
+   PerlParser,
+   Parser: PerlParser,
+};

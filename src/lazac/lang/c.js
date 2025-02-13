@@ -112,14 +112,14 @@ CParser.prototype = {
    },
 };
 
-if (self.document === undefined) {
-   const flameObj = self;
-   flameObj.FlameCParser = CParser;
-} else {
-   const flameObj = window;
-   flameObj.FlameCParser = CParser;
-}
+const flameObj = (
+   typeof(self) === 'undefined' ? (
+      typeof(window) === 'undefined' ? {} : window
+   ) : self
+);
+flameObj.FlameCParser = CParser;
 
 module.exports = {
    CParser,
+   Parser: CParser,
 };

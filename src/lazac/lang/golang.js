@@ -205,12 +205,14 @@ GolangParser.prototype = {
    },
 };
 
-if (self.document === undefined) {
-   const flameObj = self;
-   flameObj.FlameGolangParser = GolangParser;
-} else {
-   const flameObj = window;
-   flameObj.FlameGolangParser = GolangParser;
-}
+const flameObj = (
+   typeof(self) === 'undefined' ? (
+      typeof(window) === 'undefined' ? {} : window
+   ) : self
+);
+flameObj.FlameGolangParser = GolangParser;
 
-module.exports = { GolangParser, };
+module.exports = {
+   GolangParser,
+   Parser: GolangParser,
+};

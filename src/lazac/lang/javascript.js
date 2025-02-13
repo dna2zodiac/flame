@@ -79,12 +79,14 @@ JavascriptParser.prototype = {
    },
 };
 
-if (self.document === undefined) {
-   const flameObj = self;
-   flameObj.FlameJavascriptParser = JavascriptParser;
-} else {
-   const flameObj = window;
-   flameObj.FlameJavascriptParser = JavascriptParser;
-}
+const flameObj = (
+   typeof(self) === 'undefined' ? (
+      typeof(window) === 'undefined' ? {} : window
+   ) : self
+);
+flameObj.FlameJavascriptParser = JavascriptParser;
 
-module.exports = { JavascriptParser, };
+module.exports = {
+   JavascriptParser,
+   Parser: JavascriptParser,
+};

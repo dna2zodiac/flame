@@ -145,12 +145,14 @@ PythonParser.prototype = {
    },
 };
 
-if (self.document === undefined) {
-   const flameObj = self;
-   flameObj.FlamePythonParser = PythonParser;
-} else {
-   const flameObj = window;
-   flameObj.FlamePythonParser = PythonParser;
-}
+const flameObj = (
+   typeof(self) === 'undefined' ? (
+      typeof(window) === 'undefined' ? {} : window
+   ) : self
+);
+flameObj.FlamePythonParser = PythonParser;
 
-module.exports = { PythonParser, };
+module.exports = {
+   PythonParser,
+   Parser: PythonParser,
+};

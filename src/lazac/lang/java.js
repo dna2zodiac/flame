@@ -95,12 +95,14 @@ JavaParser.prototype = {
    },
 };
 
-if (self.document === undefined) {
-   const flameObj = self;
-   flameObj.FlameJavaParser = JavaParser;
-} else {
-   const flameObj = window;
-   flameObj.FlameJavaParser = JavaParser;
-}
+const flameObj = (
+   typeof(self) === 'undefined' ? (
+      typeof(window) === 'undefined' ? {} : window
+   ) : self
+);
+flameObj.FlameJavaParser = JavaParser;
 
-module.exoprts = { JavaParser, };
+module.exoprts = {
+   JavaParser,
+   Parser: JavaParser,
+};

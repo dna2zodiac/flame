@@ -65,12 +65,14 @@ RustParser.prototype = {
    },
 };
 
-if (self.document === undefined) {
-   const flameObj = self;
-   flameObj.FlameRustParser = RustParser;
-} else {
-   const flameObj = window;
-   flameObj.FlameRustParser = RustParser;
-}
+const flameObj = (
+   typeof(self) === 'undefined' ? (
+      typeof(window) === 'undefined' ? {} : window
+   ) : self
+);
+flameObj.FlameRustParser = RustParser;
 
-module.exports = { RustParser, };
+module.exports = {
+   RustParser,
+   Parser: RustParser,
+};
