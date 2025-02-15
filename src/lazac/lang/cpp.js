@@ -2,6 +2,7 @@ const {
    SearchNextSkipSpace,
    SearchNextSkipSpacen,
    SearchNextStop,
+   SearchPrevSkipSpace,
    TAG_STRING,
    TAG_COMMENT,
    TAG_REGEX,
@@ -13,6 +14,7 @@ const {
 } = require('../extractor');
 const {
    DecorateScope,
+   DecorateBracket,
    TokensString,
 } = require('../decorator');
 const {
@@ -70,10 +72,46 @@ const cpp_keywords = [
 ];
 
 const c_decorate_feature = {
-   '#': [decorate_include],
+   '#': [decorate_minclude, decorate_mdefine, decorate_mothers],
 };
 
-function decorate_include(env) {
+function decorate_mdefine(env) {
+   let p = SearchNextSkipSpace(env.tokens, env.curI+1);
+   let token = env.tokens[p];
+   if (!token) return 0;
+   let pbr = SearchNextStop(env.tokens, env.curI+1, ['\n']);
+   do {
+      p = SearchPrevSkipSpace(env.tokens, pbr-1);
+      if (p < 0) return 0;
+      const t = env.tokens[p];
+      if (t.T !== '\\') break;
+      pbr = SearchNextStop(env.tokens, pbr+1, ['\n']);
+   } while (true);
+   const deco = {
+      macro: true,
+      def: true,
+      st: env.curI,
+      ed: pbr,
+   };
+   token.D = deco;
+   return deco.ed - deco.st;
+}
+
+function decorate_mothers(env) {
+   let p = SearchNextSkipSpace(env.tokens, env.curI+1);
+   let token = env.tokens[p];
+   if (!token) return 0;
+   p = SearchNextStop(env.tokens, env.curI+1, ['\n']);
+   const deco = {
+      macro: true,
+      st: env.curI,
+      ed: p,
+   };
+   token.D = deco;
+   return deco.ed - deco.st;
+}
+
+function decorate_minclude(env) {
    let p = SearchNextSkipSpace(env.tokens, env.curI+1);
    let token = env.tokens[p];
    if (!token) return 0;
@@ -127,6 +165,7 @@ CppParser.prototype = {
       ExtractTokens(env, cpp_extract_feature);
       env.curI = 0;
       DecorateScope(env, c_decorate_feature);
+      DecorateBracket(env);
       return env.tokens;
    },
    ConvertTokenToSyntaxItem: function(tokens) {

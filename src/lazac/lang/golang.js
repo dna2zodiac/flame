@@ -9,6 +9,9 @@ const {
    ExtractComment,
    ExtractTokens,
 } = require('../extractor');
+const {
+   DecorateBracket,
+} = require('../decorator');
 
 const go_extract_feature = {
    '"': [extract_string],
@@ -149,6 +152,7 @@ GolangParser.prototype = {
       ExtractTokens(env, go_extract_feature);
       env.curI = 0;
       DecorateScope(env, go_decorate_feature);
+      DecorateBracket(env);
       return env.tokens;
    },
    ConvertTokenToSyntaxItem: function(tokens) {
