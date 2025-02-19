@@ -12,24 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This binary fetches all repos of a Gerrit host.
-
+// Command zoekt-mirror-gerrit fetches all repos of a Gerrit host.
 package main
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
 	gerrit "github.com/andygrunwald/go-gerrit"
-	"github.com/google/zoekt/gitindex"
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
+	"github.com/sourcegraph/zoekt/internal/gitindex"
 )
 
 type loggingRT struct {
@@ -53,7 +57,7 @@ func (rt *loggingRT) RoundTrip(req *http.Request) (rep *http.Response, err error
 		log.Println("Rep: ", rep, err)
 	}
 	if err == nil {
-		body, _ := ioutil.ReadAll(rep.Body)
+		body, _ := io.ReadAll(rep.Body)
 
 		rep.Body.Close()
 		if debug {
@@ -72,16 +76,33 @@ func newLoggingClient() *http.Client {
 	}
 }
 
+const qualifiedRepoNameFormat = "qualified"
+const projectRepoNameFormat = "project"
+
+var validRepoNameFormat = []string{qualifiedRepoNameFormat, projectRepoNameFormat}
+
+func validateRepoNameFormat(s string) {
+	if !slices.Contains(validRepoNameFormat, s) {
+		log.Fatal(fmt.Sprintf("repo-name-format must be one of %s", strings.Join(validRepoNameFormat, ", ")))
+	}
+}
+
 func main() {
+
 	dest := flag.String("dest", "", "destination directory")
 	namePattern := flag.String("name", "", "only clone repos whose name matches the regexp.")
+	repoNameFormat := flag.String("repo-name-format", qualifiedRepoNameFormat, fmt.Sprintf("the format of the local repo name in zoekt (valid values: %s)", strings.Join(validRepoNameFormat, ", ")))
 	excludePattern := flag.String("exclude", "", "don't mirror repos whose names match this regexp.")
+	deleteRepos := flag.Bool("delete", false, "delete missing repos")
+	fetchMetaConfig := flag.Bool("fetch-meta-config", false, "fetch gerrit meta/config branch")
 	httpCrendentialsPath := flag.String("http-credentials", "", "path to a file containing http credentials stored like 'user:password'.")
+	active := flag.Bool("active", false, "mirror only active projects")
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
 		log.Fatal("must provide URL argument.")
 	}
+	validateRepoNameFormat(*repoNameFormat)
 
 	rootURL, err := url.Parse(flag.Arg(0))
 	if err != nil {
@@ -89,7 +110,7 @@ func main() {
 	}
 
 	if *httpCrendentialsPath != "" {
-		creds, err := ioutil.ReadFile(*httpCrendentialsPath)
+		creds, err := os.ReadFile(*httpCrendentialsPath)
 		if err != nil {
 			log.Print("Cannot read gerrit http credentials, going Anonymous")
 		} else {
@@ -107,28 +128,38 @@ func main() {
 		log.Fatal(err)
 	}
 
-	client, err := gerrit.NewClient(rootURL.String(), newLoggingClient())
+	ctx := context.Background()
+
+	client, err := gerrit.NewClient(ctx, rootURL.String(), newLoggingClient())
 	if err != nil {
 		log.Fatalf("NewClient(%s): %v", rootURL, err)
 	}
 
-	info, _, err := client.Config.GetServerInfo()
+	info, _, err := client.Config.GetServerInfo(ctx)
 	if err != nil {
 		log.Fatalf("GetServerInfo: %v", err)
 	}
 
 	var projectURL string
 	for _, s := range []string{"http", "anonymous http"} {
-		projectURL = info.Download.Schemes[s].URL
+		if schemeInfo, ok := info.Download.Schemes[s]; ok {
+			projectURL = schemeInfo.URL
+			if s == "http" && schemeInfo.IsAuthRequired {
+				projectURL = addPassword(projectURL, rootURL.User)
+				// remove "/a/" prefix needed for API call with basic auth but not with git command → cleaner repo name
+				projectURL = strings.Replace(projectURL, "/a/${project}", "/${project}", 1)
+			}
+			break
+		}
 	}
 	if projectURL == "" {
 		log.Fatalf("project URL is empty, got Schemes %#v", info.Download.Schemes)
 	}
 
 	projects := make(map[string]gerrit.ProjectInfo)
-	skip := "0"
+	skip := 0
 	for {
-		page, _, err := client.Projects.ListProjects(&gerrit.ProjectOptions{Skip: skip})
+		page, _, err := client.Projects.ListProjects(ctx, &gerrit.ProjectOptions{Skip: strconv.Itoa(skip)})
 		if err != nil {
 			log.Fatalf("ListProjects: %v", err)
 		}
@@ -136,10 +167,13 @@ func main() {
 		if len(*page) == 0 {
 			break
 		}
+
 		for k, v := range *page {
-			projects[k] = v
+			if !*active || "ACTIVE" == v.State {
+				projects[k] = v
+			}
+			skip = skip + 1
 		}
-		skip = strconv.Itoa(len(projects))
 	}
 
 	for k, v := range projects {
@@ -147,16 +181,25 @@ func main() {
 			continue
 		}
 
-		cloneURL, err := url.Parse(strings.Replace(projectURL, "${project}", k, -1))
+		cloneURL, err := url.Parse(strings.Replace(projectURL, "${project}", k, 1))
 		if err != nil {
 			log.Fatalf("url.Parse: %v", err)
 		}
 
 		name := filepath.Join(cloneURL.Host, cloneURL.Path)
+		var zoektName string
+		switch *repoNameFormat {
+		case qualifiedRepoNameFormat:
+			zoektName = name
+		case projectRepoNameFormat:
+			zoektName = k
+		}
 		config := map[string]string{
-			"zoekt.name":           name,
+			"zoekt.name":           zoektName,
 			"zoekt.gerrit-project": k,
-			"zoekt.gerrit-host":    rootURL.String(),
+			"zoekt.gerrit-host":    anonymousURL(rootURL),
+			"zoekt.archived":       marshalBool(v.State == "READ_ONLY"),
+			"zoekt.public":         marshalBool(v.State != "HIDDEN"),
 		}
 
 		for _, wl := range v.WebLinks {
@@ -178,5 +221,80 @@ func main() {
 		} else {
 			fmt.Println(dest)
 		}
+		if *fetchMetaConfig {
+			if err := addMetaConfigFetch(filepath.Join(*dest, name+".git")); err != nil {
+				log.Fatalf("addMetaConfigFetch: %v", err)
+			}
+		}
 	}
+	if *deleteRepos {
+		if err := deleteStaleRepos(*dest, filter, projects, projectURL); err != nil {
+			log.Fatalf("deleteStaleRepos: %v", err)
+		}
+	}
+}
+
+func deleteStaleRepos(destDir string, filter *gitindex.Filter, repos map[string]gerrit.ProjectInfo, projectURL string) error {
+	u, err := url.Parse(strings.Replace(projectURL, "${project}", "", 1))
+	if err != nil {
+		return err
+	}
+
+	names := map[string]struct{}{}
+	for name := range repos {
+		u, err := url.Parse(strings.Replace(projectURL, "${project}", name, 1))
+		if err != nil {
+			return err
+		}
+		names[filepath.Join(u.Host, u.Path)+".git"] = struct{}{}
+	}
+
+	if err := gitindex.DeleteRepos(destDir, u, names, filter); err != nil {
+		log.Fatalf("deleteRepos: %v", err)
+	}
+	return nil
+}
+
+func marshalBool(b bool) string {
+	if b {
+		return "1"
+	}
+	return "0"
+}
+
+func anonymousURL(u *url.URL) string {
+	anon := *u
+	anon.User = nil
+	return anon.String()
+}
+
+func addPassword(u string, user *url.Userinfo) string {
+	password, _ := user.Password()
+	username := user.Username()
+	return strings.Replace(u, fmt.Sprintf("://%s@", username), fmt.Sprintf("://%s:%s@", username, password), 1)
+}
+
+func addMetaConfigFetch(repoDir string) error {
+	repo, err := git.PlainOpen(repoDir)
+	if err != nil {
+		return err
+	}
+
+	cfg, err := repo.Config()
+	if err != nil {
+		return err
+	}
+
+	rm := cfg.Remotes["origin"]
+	if rm != nil {
+		configRefSpec := config.RefSpec("+refs/meta/config:refs/heads/meta-config")
+		if !slices.Contains(rm.Fetch, configRefSpec) {
+			rm.Fetch = append(rm.Fetch, configRefSpec)
+		}
+	}
+	if err := repo.Storer.SetConfig(cfg); err != nil {
+		return err
+	}
+
+	return nil
 }

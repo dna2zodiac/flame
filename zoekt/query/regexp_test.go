@@ -18,6 +18,8 @@ import (
 	"regexp/syntax"
 	"strings"
 	"testing"
+
+	"github.com/sourcegraph/zoekt/internal/syntaxutil"
 )
 
 var opnames = map[syntax.Op]string{
@@ -52,7 +54,7 @@ func printRegexp(t *testing.T, r *syntax.Regexp, lvl int) {
 func TestLowerRegexp(t *testing.T) {
 	in := "[a-zA-Z]fooBAR"
 	re := mustParseRE(in)
-	in = re.String()
+	in = syntaxutil.RegexpString(re)
 	got := LowerRegexp(re)
 	want := "[a-za-z]foobar"
 	if got.String() != want {
@@ -61,7 +63,41 @@ func TestLowerRegexp(t *testing.T) {
 		t.Errorf("got %s, want %s", got, want)
 	}
 
-	if re.String() != in {
-		t.Errorf("got mutated original %s want %s", re.String(), in)
+	if orig := syntaxutil.RegexpString(re); orig != in {
+		t.Errorf("got mutated original %s want %s", orig, in)
+	}
+}
+
+func TestOptimize(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "simple capture", in: "(hello)world", want: "(?:hello)world"},
+		{name: "simple capture == literal", in: "(hello)world", want: "helloworld"},
+		{name: "capture alternative", in: "test(ing|ed)", want: "test(?:ing|ed)"},
+		{name: "capture repeat", in: "ba(na){1,2}", want: "ba(?:na){1,2}"},
+		{name: "nested captures", in: "b(a(n(a(n(a)))))", want: "banana"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// optimizeRegexp always calls Simplify
+			// calling Simplify here makes test cases more predictable
+			simplifiedWant := mustParseRE(tt.want).Simplify()
+
+			in := mustParseRE(tt.in)
+			got := OptimizeRegexp(in, regexpFlags)
+
+			// String comparison as the same Regexp string can have different ASTs
+			// e.g. optimize of `ba(na){1,2}` == `bana(?:na)?`
+			//      however the AST is different from directly parsing `bana(?:na)?`
+			if got.String() != simplifiedWant.String() {
+				printRegexp(t, got, 0)
+				printRegexp(t, simplifiedWant, 0)
+				t.Errorf("got %s, want %s\n", got, tt.want)
+			}
+		})
 	}
 }

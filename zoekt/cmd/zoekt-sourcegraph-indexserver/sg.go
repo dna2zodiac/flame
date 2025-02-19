@@ -3,14 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"hash/crc32"
-	"io"
-	"io/ioutil"
 	"log"
 	"math/rand"
-	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -20,37 +17,84 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/zoekt"
-	retryablehttp "github.com/hashicorp/go-retryablehttp"
-	"go.uber.org/atomic"
+	"github.com/go-git/go-git/v5"
+	"github.com/sourcegraph/zoekt/internal/ctags"
 	"golang.org/x/net/trace"
+
+	"github.com/sourcegraph/zoekt"
+	proto "github.com/sourcegraph/zoekt/cmd/zoekt-sourcegraph-indexserver/protos/sourcegraph/zoekt/configuration/v1"
 )
 
+// SourcegraphListResult is the return value of Sourcegraph.List. It is its
+// own type since internally we batch the calculation of index options. This
+// is exposed via IterateIndexOptions.
+//
+// This type has state and is coupled to the Sourcegraph implementation.
 type SourcegraphListResult struct {
 	// IDs is the set of Sourcegraph repository IDs that this replica needs
 	// to index.
 	IDs []uint32
 
 	// IterateIndexOptions best effort resolves the IndexOptions for RepoIDs. If
-	// any repository fails it internally logs.
+	// any repository fails it internally logs. It uses the "config fingerprint"
+	// to reduce the amount of work done. This means we only resolve options for
+	// repositories which have been mutated since the last Sourcegraph.List
+	// call.
 	//
 	// Note: this has a side-effect of setting a the "config fingerprint". The
 	// config fingerprint means we only calculate index options for repositories
 	// that have changed since the last call to IterateIndexOptions. If you want
-	// to force calculation of index options use Sourcegraph.GetIndexOptions.
+	// to force calculation of index options use
+	// Sourcegraph.ForceIterateIndexOptions.
+	//
+	// Note: This should not be called concurrently with the Sourcegraph client.
 	IterateIndexOptions func(func(IndexOptions))
 }
 
+// Sourcegraph represents the Sourcegraph service. It informs the indexserver
+// what to index and which options to use.
 type Sourcegraph interface {
+	// List returns a list of repository IDs to index as well as a facility to
+	// fetch the indexing options.
+	//
+	// Note: The return value is not safe to use concurrently with future calls
+	// to List.
 	List(ctx context.Context, indexed []uint32) (*SourcegraphListResult, error)
 
 	// ForceIterateIndexOptions will best-effort calculate the index options for
-	// all of ids. If any repository fails it internally logs.
-	ForceIterateIndexOptions(func(IndexOptions), ...uint32)
+	// all repos. For each repo it will call either onSuccess or onError. This
+	// is the forced version of IterateIndexOptions, so will always calculate
+	// options for each id in repos.
+	ForceIterateIndexOptions(onSuccess func(IndexOptions), onError func(uint32, error), repos ...uint32)
 
-	// GetIndexOptions is deprecated but kept around until we improve our
-	// forceIndex code.
-	GetIndexOptions(repos ...uint32) ([]indexOptionsItem, error)
+	// UpdateIndexStatus sends a request to Sourcegraph to confirm that the
+	// given repositories have been indexed.
+	UpdateIndexStatus(repositories []indexStatus) error
+}
+
+type SourcegraphClientOption func(*sourcegraphClient)
+
+// WithBatchSize controls how many repository configurations we request a time.
+// If BatchSize is 0, we default to requesting 10,000 repositories at once.
+func WithBatchSize(batchSize int) SourcegraphClientOption {
+	return func(c *sourcegraphClient) {
+		c.BatchSize = batchSize
+	}
+}
+
+func newSourcegraphClient(rootURL *url.URL, hostname string, grpcClient proto.ZoektConfigurationServiceClient, opts ...SourcegraphClientOption) *sourcegraphClient {
+	client := &sourcegraphClient{
+		Root:       rootURL,
+		Hostname:   hostname,
+		BatchSize:  0,
+		grpcClient: grpcClient,
+	}
+
+	for _, opt := range opts {
+		opt(client)
+	}
+
+	return client
 }
 
 // sourcegraphClient contains methods which interact with the sourcegraph API.
@@ -67,14 +111,16 @@ type sourcegraphClient struct {
 	// zero a value of 10000 is used.
 	BatchSize int
 
-	// Client is used to make requests to the Sourcegraph instance. Prefer to
-	// use .doRequest() to ensure the appropriate headers are set.
-	Client *retryablehttp.Client
+	// grpcClient is used to make requests to the Sourcegraph instance if gRPC is enabled.
+	grpcClient proto.ZoektConfigurationServiceClient
 
-	// configFingerprint is the last config fingerprint returned from
+	// configFingerprintProto is the last config fingerprint (as GRPC) returned from
 	// Sourcegraph. It can be used for future calls to the configuration
 	// endpoint.
-	configFingerprint atomic.String
+	//
+	// configFingerprintProto is mutually exclusive with configFingerprint - this field
+	// will only be used if gRPC is enabled.
+	configFingerprintProto *proto.Fingerprint
 
 	// configFingerprintReset tracks when we should zero out the
 	// configFingerprint. We want to periodically do this just in case our
@@ -86,7 +132,7 @@ type sourcegraphClient struct {
 func (s *sourcegraphClient) List(ctx context.Context, indexed []uint32) (*SourcegraphListResult, error) {
 	repos, err := s.listRepoIDs(ctx, indexed)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listRepoIDs: %w", err)
 	}
 
 	batchSize := s.BatchSize
@@ -104,58 +150,82 @@ func (s *sourcegraphClient) List(ctx context.Context, indexed []uint32) (*Source
 		}
 		next += time.Duration(rand.Int63n(int64(next) / 4)) // jitter
 		s.configFingerprintReset = time.Now().Add(next)
-		s.configFingerprint.Store("")
+
+		s.configFingerprintProto = nil
 	}
 
-	// We want to use a consistent fingerprint for each call. Next time list is
-	// called we want to use the first fingerprint returned from the
-	// configuration endpoint. However, if any of our configuration calls fail,
-	// we need to fallback to our last value.
-	lastFingerprint := s.configFingerprint.Load()
-	first := true
+	// getIndexOptionsFunc is a function that can be used to get the index
+	// options for a set of repos (while properly handling any configuration fingerprint
+	// changes).
+	//
+	// In general, this function provides a consistent fingerprint for each batch call,
+	// and updates the server state with the new fingerprint. If any of the batch calls
+	// fail, the old fingerprint is restored.
+	type getIndexOptionsFunc func(repos ...uint32) ([]indexOptionsItem, error)
+
+	mkGetIndexOptionsFunc := func(tr trace.Trace) getIndexOptionsFunc {
+		startingFingerPrint := s.configFingerprintProto
+		tr.LazyPrintf("fingerprint: %s", startingFingerPrint.String())
+
+		first := true
+		return func(repos ...uint32) ([]indexOptionsItem, error) {
+			options, nextFingerPrint, err := s.getIndexOptions(ctx, startingFingerPrint, repos)
+			if err != nil {
+				first = false
+				s.configFingerprintProto = startingFingerPrint
+
+				return nil, err
+			}
+
+			if first {
+				first = false
+				s.configFingerprintProto = nextFingerPrint
+				tr.LazyPrintf("new fingerprint: %s", nextFingerPrint.String())
+			}
+
+			return options, nil
+		}
+	}
 
 	iterate := func(f func(IndexOptions)) {
 		start := time.Now()
 		tr := trace.New("getIndexOptions", "")
 		tr.LazyPrintf("getting index options for %d repos", len(repos))
-		tr.LazyPrintf("fingerprint: %s", lastFingerprint)
 
 		defer func() {
 			metricResolveRevisionsDuration.Observe(time.Since(start).Seconds())
 			tr.Finish()
 		}()
 
+		getIndexOptions := mkGetIndexOptionsFunc(tr)
+
 		// We ask the frontend to get index options in batches.
 		for repos := range batched(repos, batchSize) {
 			start := time.Now()
-			opts, fingerprint, err := s.getIndexOptions(lastFingerprint, repos...)
-			if err != nil {
-				// Call failed, restore old fingerprint for next call to List.
-				first = false
-				s.configFingerprint.Store(lastFingerprint)
+			options, err := getIndexOptions(repos...)
+			duration := time.Since(start)
 
-				metricResolveRevisionDuration.WithLabelValues("false").Observe(time.Since(start).Seconds())
+			if err != nil {
+				metricResolveRevisionDuration.WithLabelValues("false").Observe(duration.Seconds())
 				tr.LazyPrintf("failed fetching options batch: %v", err)
 				tr.SetError()
+
 				continue
 			}
 
-			if first {
-				first = false
-				tr.LazyPrintf("new fingerprint: %s", fingerprint)
-				s.configFingerprint.Store(fingerprint)
-			}
+			metricResolveRevisionDuration.WithLabelValues("true").Observe(duration.Seconds())
 
-			metricResolveRevisionDuration.WithLabelValues("true").Observe(time.Since(start).Seconds())
-			for _, opt := range opts {
+			for _, o := range options {
 				metricGetIndexOptions.Inc()
-				if opt.Error != "" {
+
+				if o.Error != "" {
 					metricGetIndexOptionsError.Inc()
-					tr.LazyPrintf("failed fetching options for %v: %v", opt.Name, opt.Error)
+					tr.LazyPrintf("failed fetching options for %v: %v", o.Name, o.Error)
 					tr.SetError()
+
 					continue
 				}
-				f(opt.IndexOptions)
+				f(o.IndexOptions)
 			}
 		}
 	}
@@ -166,20 +236,26 @@ func (s *sourcegraphClient) List(ctx context.Context, indexed []uint32) (*Source
 	}, nil
 }
 
-func (s *sourcegraphClient) ForceIterateIndexOptions(f func(IndexOptions), repos ...uint32) {
+func (s *sourcegraphClient) ForceIterateIndexOptions(onSuccess func(IndexOptions), onError func(uint32, error), repos ...uint32) {
 	batchSize := s.BatchSize
 	if batchSize == 0 {
 		batchSize = 10_000
 	}
 
 	for repos := range batched(repos, batchSize) {
-		opts, err := s.GetIndexOptions(repos...)
+		opts, _, err := s.getIndexOptions(context.Background(), nil, repos)
 		if err != nil {
+			for _, id := range repos {
+				onError(id, err)
+			}
 			continue
 		}
 		for _, o := range opts {
+			if o.RepoID > 0 && o.Error != "" {
+				onError(o.RepoID, errors.New(o.Error))
+			}
 			if o.Error == "" {
-				f(o.IndexOptions)
+				onSuccess(o.IndexOptions)
 			}
 		}
 	}
@@ -192,65 +268,113 @@ type indexOptionsItem struct {
 	Error string
 }
 
-func (s *sourcegraphClient) GetIndexOptions(repos ...uint32) ([]indexOptionsItem, error) {
-	opts, _, err := s.getIndexOptions("", repos...)
-	return opts, err
+func (o *indexOptionsItem) FromProto(x *proto.ZoektIndexOptions) {
+	branches := make([]zoekt.RepositoryBranch, 0, len(x.Branches))
+	for _, b := range x.GetBranches() {
+		branches = append(branches, zoekt.RepositoryBranch{
+			Name:    b.GetName(),
+			Version: b.GetVersion(),
+		})
+	}
+
+	item := indexOptionsItem{}
+	languageMap := make(map[string]ctags.CTagsParserType)
+
+	for _, lang := range x.GetLanguageMap() {
+		languageMap[lang.GetLanguage()] = ctags.CTagsParserType(lang.GetCtags().Number())
+	}
+
+	item.IndexOptions = IndexOptions{
+		RepoID:     uint32(x.GetRepoId()),
+		LargeFiles: x.GetLargeFiles(),
+		Symbols:    x.GetSymbols(),
+		Branches:   branches,
+		Name:       x.GetName(),
+
+		Priority: x.GetPriority(),
+
+		Public:   x.GetPublic(),
+		Fork:     x.GetFork(),
+		Archived: x.GetArchived(),
+
+		LanguageMap:      languageMap,
+		ShardConcurrency: x.GetShardConcurrency(),
+
+		TenantID: int(x.TenantId),
+	}
+
+	item.Error = x.GetError()
+
+	*o = item
 }
 
-func (s *sourcegraphClient) getIndexOptions(fingerprint string, repos ...uint32) ([]indexOptionsItem, string, error) {
-	u := s.Root.ResolveReference(&url.URL{
-		Path: "/.internal/search/configuration",
-	})
-
-	repoIDs := make([]string, len(repos))
-	for i, id := range repos {
-		repoIDs[i] = strconv.Itoa(int(id))
+func (o *indexOptionsItem) ToProto() *proto.ZoektIndexOptions {
+	branches := make([]*proto.ZoektRepositoryBranch, 0, len(o.Branches))
+	for _, b := range o.Branches {
+		branches = append(branches, &proto.ZoektRepositoryBranch{
+			Name:    b.Name,
+			Version: b.Version,
+		})
 	}
-	data := url.Values{"repoID": repoIDs}
-	req, err := retryablehttp.NewRequest("POST", u.String(), []byte(data.Encode()))
+
+	languageMap := make([]*proto.LanguageMapping, 0, len(o.LanguageMap))
+
+	for lang, parser := range o.LanguageMap {
+		languageMap = append(languageMap, &proto.LanguageMapping{
+			Language: lang,
+			Ctags:    proto.CTagsParserType(parser),
+		})
+	}
+
+	return &proto.ZoektIndexOptions{
+		RepoId:     int32(o.RepoID),
+		LargeFiles: o.LargeFiles,
+		Symbols:    o.Symbols,
+		Branches:   branches,
+		Name:       o.Name,
+
+		Priority: o.Priority,
+
+		Public:   o.Public,
+		Fork:     o.Fork,
+		Archived: o.Archived,
+
+		Error: o.Error,
+
+		LanguageMap:      languageMap,
+		ShardConcurrency: o.ShardConcurrency,
+
+		TenantId: int64(o.TenantID),
+	}
+}
+
+func (s *sourcegraphClient) getIndexOptions(ctx context.Context, fingerprint *proto.Fingerprint, repos []uint32) ([]indexOptionsItem, *proto.Fingerprint, error) {
+	repoIDs := make([]int32, 0, len(repos))
+	for _, id := range repos {
+		repoIDs = append(repoIDs, int32(id))
+	}
+
+	req := proto.SearchConfigurationRequest{
+		RepoIds:     repoIDs,
+		Fingerprint: fingerprint,
+	}
+
+	response, err := s.grpcClient.SearchConfiguration(ctx, &req)
 	if err != nil {
-		return nil, "", err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if fingerprint != "" {
-		req.Header.Set("X-Sourcegraph-Config-Fingerprint", fingerprint)
+		return nil, nil, err
 	}
 
-	resp, err := s.doRequest(req)
-	if err != nil {
-		return nil, "", err
-	}
-	defer resp.Body.Close()
+	protoItems := response.GetUpdatedOptions()
+	items := make([]indexOptionsItem, 0, len(protoItems))
+	for _, x := range protoItems {
+		var item indexOptionsItem
+		item.FromProto(x)
+		item.IndexOptions.CloneURL = s.getCloneURL(item.Name)
 
-	if resp.StatusCode != http.StatusOK {
-		b, err := ioutil.ReadAll(io.LimitReader(resp.Body, 1024))
-		_ = resp.Body.Close()
-		if err != nil {
-			return nil, "", err
-		}
-		return nil, "", &url.Error{
-			Op:  "Get",
-			URL: u.String(),
-			Err: fmt.Errorf("%s: %s", resp.Status, string(b)),
-		}
+		items = append(items, item)
 	}
 
-	dec := json.NewDecoder(resp.Body)
-	var opts []indexOptionsItem
-	for {
-		var opt indexOptionsItem
-		err := dec.Decode(&opt)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, "", fmt.Errorf("error decoding body: %w", err)
-		}
-		opt.CloneURL = s.getCloneURL(opt.Name)
-		opts = append(opts, opt)
-	}
-
-	return opts, resp.Header.Get("X-Sourcegraph-Config-Fingerprint"), nil
+	return items, response.GetFingerprint(), nil
 }
 
 func (s *sourcegraphClient) getCloneURL(name string) string {
@@ -258,56 +382,100 @@ func (s *sourcegraphClient) getCloneURL(name string) string {
 }
 
 func (s *sourcegraphClient) listRepoIDs(ctx context.Context, indexed []uint32) ([]uint32, error) {
-	body, err := json.Marshal(&struct {
-		Hostname   string
-		IndexedIDs []uint32
-	}{
-		Hostname:   s.Hostname,
-		IndexedIDs: indexed,
-	})
+	var request proto.ListRequest
+	request.Hostname = s.Hostname
+	request.IndexedIds = make([]int32, 0, len(indexed))
+	for _, id := range indexed {
+		request.IndexedIds = append(request.IndexedIds, int32(id))
+	}
+
+	response, err := s.grpcClient.List(ctx, &request)
 	if err != nil {
 		return nil, err
 	}
 
-	u := s.Root.ResolveReference(&url.URL{Path: "/.internal/repos/index"})
-	req, err := retryablehttp.NewRequest(http.MethodPost, u.String(), bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json; charset=utf8")
-
-	resp, err := s.doRequest(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to list repositories: status %s", resp.Status)
+	repoIDs := make([]uint32, 0, len(response.RepoIds))
+	for _, id := range response.RepoIds {
+		repoIDs = append(repoIDs, uint32(id))
 	}
 
-	var data struct {
-		RepoIDs []uint32
-	}
-	err = json.NewDecoder(resp.Body).Decode(&data)
-	if err != nil {
-		return nil, err
-	}
-
-	metricNumAssigned.Set(float64(len(data.RepoIDs)))
-
-	return data.RepoIDs, nil
+	return repoIDs, nil
 }
 
-// doRequest executes the provided request after adding the appropriate headers
-// for interacting with a Sourcegraph instance.
-func (s *sourcegraphClient) doRequest(req *retryablehttp.Request) (*http.Response, error) {
-	// Make all requests as an internal user.
-	//
-	// Should match github.com/sourcegraph/sourcegraph/internal/actor.headerKeyActorUID
-	// and github.com/sourcegraph/sourcegraph/internal/actor.headerValueInternalActor
-	req.Header.Set("X-Sourcegraph-Actor-UID", "internal")
-	return s.Client.Do(req)
+type indexStatus struct {
+	RepoID        uint32
+	Branches      []zoekt.RepositoryBranch
+	IndexTimeUnix int64
+}
+
+type updateIndexStatusRequest struct {
+	Repositories []indexStatus
+}
+
+func (u *updateIndexStatusRequest) ToProto() *proto.UpdateIndexStatusRequest {
+	repositories := make([]*proto.UpdateIndexStatusRequest_Repository, 0, len(u.Repositories))
+
+	for _, repo := range u.Repositories {
+		branches := make([]*proto.ZoektRepositoryBranch, 0, len(repo.Branches))
+
+		for _, branch := range repo.Branches {
+			branches = append(branches, &proto.ZoektRepositoryBranch{
+				Name:    branch.Name,
+				Version: branch.Version,
+			})
+		}
+
+		repositories = append(repositories, &proto.UpdateIndexStatusRequest_Repository{
+			RepoId:        repo.RepoID,
+			Branches:      branches,
+			IndexTimeUnix: repo.IndexTimeUnix,
+		})
+	}
+
+	return &proto.UpdateIndexStatusRequest{
+		Repositories: repositories,
+	}
+}
+
+func (u *updateIndexStatusRequest) FromProto(x *proto.UpdateIndexStatusRequest) {
+	protoRepositories := x.GetRepositories()
+	repositories := make([]indexStatus, 0, len(protoRepositories))
+
+	for _, repo := range x.GetRepositories() {
+		protoBranches := repo.GetBranches()
+		branches := make([]zoekt.RepositoryBranch, 0, len(protoBranches))
+
+		for _, branch := range repo.GetBranches() {
+			branches = append(branches, zoekt.RepositoryBranch{
+				Name:    branch.GetName(),
+				Version: branch.GetVersion(),
+			})
+		}
+
+		repositories = append(repositories, indexStatus{
+			RepoID:        repo.GetRepoId(),
+			Branches:      branches,
+			IndexTimeUnix: repo.GetIndexTimeUnix(),
+		})
+	}
+
+	*u = updateIndexStatusRequest{
+		Repositories: repositories,
+	}
+}
+
+// UpdateIndexStatus sends a request to Sourcegraph to confirm that the given
+// repositories have been indexed.
+func (s *sourcegraphClient) UpdateIndexStatus(repositories []indexStatus) error {
+	r := updateIndexStatusRequest{Repositories: repositories}
+
+	request := r.ToProto()
+	_, err := s.grpcClient.UpdateIndexStatus(context.Background(), request)
+	if err != nil {
+		return fmt.Errorf("failed to update index status: %w", err)
+	}
+
+	return nil
 }
 
 type sourcegraphFake struct {
@@ -328,7 +496,7 @@ func (sf sourcegraphFake) List(ctx context.Context, indexed []uint32) (*Sourcegr
 		}
 		for _, opt := range opts {
 			if opt.Error != "" {
-				sf.Log.Printf("WARN: ignoring GetIndexOptions error for %s: %v", opt.Name, err)
+				sf.Log.Printf("WARN: ignoring GetIndexOptions error for %s: %v", opt.Name, opt.Error)
 				continue
 			}
 			f(opt.IndexOptions)
@@ -341,14 +509,20 @@ func (sf sourcegraphFake) List(ctx context.Context, indexed []uint32) (*Sourcegr
 	}, nil
 }
 
-func (sf sourcegraphFake) ForceIterateIndexOptions(f func(IndexOptions), repos ...uint32) {
+func (sf sourcegraphFake) ForceIterateIndexOptions(onSuccess func(IndexOptions), onError func(uint32, error), repos ...uint32) {
 	opts, err := sf.GetIndexOptions(repos...)
 	if err != nil {
+		for _, id := range repos {
+			onError(id, err)
+		}
 		return
 	}
 	for _, o := range opts {
+		if o.RepoID > 0 && o.Error != "" {
+			onError(o.RepoID, errors.New(o.Error))
+		}
 		if o.Error == "" {
-			f(o.IndexOptions)
+			onSuccess(o.IndexOptions)
 		}
 	}
 }
@@ -372,7 +546,6 @@ func (sf sourcegraphFake) GetIndexOptions(repos ...uint32) ([]indexOptionsItem, 
 			items[idx] = indexOptionsItem{IndexOptions: opts}
 		}
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -392,6 +565,11 @@ func (sf sourcegraphFake) getIndexOptions(name string) (IndexOptions, error) {
 		_, err := os.Stat(filepath.Join(dir, p))
 		return err == nil
 	}
+	float := func(p string) float64 {
+		b, _ := os.ReadFile(filepath.Join(dir, p))
+		f, _ := strconv.ParseFloat(string(bytes.TrimSpace(b)), 64)
+		return f
+	}
 
 	opts := IndexOptions{
 		RepoID:   sf.id(name),
@@ -402,21 +580,57 @@ func (sf sourcegraphFake) getIndexOptions(name string) (IndexOptions, error) {
 		Public:   !exists("SG_PRIVATE"),
 		Fork:     exists("SG_FORK"),
 		Archived: exists("SG_ARCHIVED"),
+
+		Priority: float("SG_PRIORITY"),
 	}
 
-	cmd := exec.Command("git", "rev-parse", "HEAD")
-	cmd.Dir = dir
-	if b, err := cmd.Output(); err != nil {
+	branches, err := sf.getBranches(name)
+	if err != nil {
 		return opts, err
-	} else {
-		head := string(bytes.TrimSpace(b))
-		opts.Branches = []zoekt.RepositoryBranch{{
-			Name:    "HEAD",
-			Version: head,
-		}}
 	}
+	opts.Branches = branches
 
 	return opts, nil
+}
+
+func (sf sourcegraphFake) getBranches(name string) ([]zoekt.RepositoryBranch, error) {
+	dir := filepath.Join(sf.RootDir, filepath.FromSlash(name))
+	repo, err := git.PlainOpen(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg, err := repo.Config()
+	if err != nil {
+		return nil, err
+	}
+
+	sec := cfg.Raw.Section("zoekt")
+	branches := sec.Options.GetAll("branch")
+	if len(branches) == 0 {
+		branches = append(branches, "HEAD")
+	}
+
+	rBranches := make([]zoekt.RepositoryBranch, 0, len(branches))
+	for _, branch := range branches {
+		cmd := exec.Command("git", "rev-parse", branch)
+		cmd.Dir = dir
+		if b, err := cmd.Output(); err != nil {
+			sf.Log.Printf("WARN: Could not get branch %s/%s", name, branch)
+		} else {
+			version := string(bytes.TrimSpace(b))
+			rBranches = append(rBranches, zoekt.RepositoryBranch{
+				Name:    branch,
+				Version: version,
+			})
+		}
+	}
+
+	if len(rBranches) == 0 {
+		return nil, fmt.Errorf("WARN: Could not get any branch revisions for repo %s", name)
+	}
+
+	return rBranches, nil
 }
 
 func (sf sourcegraphFake) id(name string) uint32 {
@@ -472,8 +686,26 @@ func (sf sourcegraphFake) visitRepos(visit func(name string)) error {
 	})
 }
 
+func (s sourcegraphFake) UpdateIndexStatus(repositories []indexStatus) error {
+	// noop
+	return nil
+}
+
 // fakeID returns a deterministic ID based on name. Used for fakes and tests.
 func fakeID(name string) uint32 {
 	// magic at the end is to ensure we get a positive number when casting.
 	return uint32(crc32.ChecksumIEEE([]byte(name))%(1<<31-1) + 1)
+}
+
+type sourcegraphNop struct{}
+
+func (s sourcegraphNop) List(ctx context.Context, indexed []uint32) (*SourcegraphListResult, error) {
+	return nil, nil
+}
+
+func (s sourcegraphNop) ForceIterateIndexOptions(onSuccess func(IndexOptions), onError func(uint32, error), repos ...uint32) {
+}
+
+func (s sourcegraphNop) UpdateIndexStatus(repositories []indexStatus) error {
+	return nil
 }

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This binary fetches all repos of a Gitiles host.  It does double
-// duty for other "simple" web hosts
+// Command zoekt-mirror-gitiles fetches all repos of a Gitiles host.
+// It does double duty for other "simple" web hosts.
 package main
 
 import (
@@ -24,7 +24,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/google/zoekt/gitindex"
+	"github.com/sourcegraph/zoekt/internal/gitindex"
 )
 
 type crawlTarget struct {

@@ -12,11 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This program manages a zoekt indexing deployment:
-// * recycling logs
-// * periodically fetching new data.
-// * periodically reindexing all git repos.
-
+// Command zoekt-indexserver starts a service that periodically reindexes repositories. It follows
+// a "pull-based" design, where it reaches out to code hosts to fetch new data.
 package main
 
 import (
@@ -33,8 +30,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/zoekt"
-	"github.com/google/zoekt/gitindex"
+	"github.com/sourcegraph/zoekt/index"
+	"github.com/sourcegraph/zoekt/internal/gitindex"
 )
 
 const day = time.Hour * 24
@@ -129,21 +126,16 @@ func periodicFetch(repoDir, indexDir string, opts *Options, pendingRepos chan<- 
 // fetchGitRepo runs git-fetch, and returns true if there was an
 // update.
 func fetchGitRepo(dir string) bool {
-	cmd := exec.Command("git", "--git-dir", dir, "fetch", "origin")
-	outBuf := &bytes.Buffer{}
-	errBuf := &bytes.Buffer{}
+	cmd := exec.Command("git", "--git-dir", dir, "fetch", "origin", "--prune")
 
-	// Prevent prompting
-	cmd.Stdin = &bytes.Buffer{}
-	cmd.Stderr = errBuf
-	cmd.Stdout = outBuf
-	if err := cmd.Run(); err != nil {
-		log.Printf("command %s failed: %v\nOUT: %s\nERR: %s",
-			cmd.Args, err, outBuf.String(), errBuf.String())
-	} else {
-		return len(outBuf.Bytes()) != 0
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("command %s failed: %v\nCOMBINED_OUT: %s\n",
+			cmd.Args, err, string(output))
+		return false
 	}
-	return false
+	// When fetch found no updates, it prints nothing out
+	return len(output) != 0
 }
 
 // indexPendingRepos consumes the directories on the repos channel and
@@ -211,13 +203,13 @@ func deleteIfOrphan(repoDir string, fn string) error {
 	}
 	defer f.Close()
 
-	ifile, err := zoekt.NewIndexFile(f)
+	ifile, err := index.NewIndexFile(f)
 	if err != nil {
 		return nil
 	}
 	defer ifile.Close()
 
-	repos, _, err := zoekt.ReadMetadata(ifile)
+	repos, _, err := index.ReadMetadata(ifile)
 	if err != nil {
 		return nil
 	}

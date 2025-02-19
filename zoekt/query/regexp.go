@@ -17,6 +17,8 @@ package query
 import (
 	"log"
 	"regexp/syntax"
+
+	"github.com/sourcegraph/zoekt/internal/syntaxutil"
 )
 
 var _ = log.Println
@@ -41,4 +43,64 @@ func LowerRegexp(r *syntax.Regexp) *syntax.Regexp {
 	}
 
 	return &newRE
+}
+
+// OptimizeRegexp converts capturing groups to non-capturing groups.
+// Returns original input if an error is encountered
+func OptimizeRegexp(re *syntax.Regexp, flags syntax.Flags) *syntax.Regexp {
+	r := convertCapture(re, flags)
+	return r.Simplify()
+}
+
+func convertCapture(re *syntax.Regexp, flags syntax.Flags) *syntax.Regexp {
+	if !hasCapture(re) {
+		return re
+	}
+
+	// Make a copy so in unlikely event of an error the original can be used as a fallback
+	r, err := syntax.Parse(syntaxutil.RegexpString(re), flags)
+	if err != nil {
+		log.Printf("failed to copy regexp `%s`: %v", re, err)
+		return re
+	}
+
+	r = uncapture(r)
+
+	// Parse again for new structure to take effect
+	r, err = syntax.Parse(syntaxutil.RegexpString(r), flags)
+	if err != nil {
+		log.Printf("failed to parse regexp after uncapture `%s`: %v", r, err)
+		return re
+	}
+
+	return r
+}
+
+func hasCapture(r *syntax.Regexp) bool {
+	if r.Op == syntax.OpCapture {
+		return true
+	}
+
+	for _, s := range r.Sub {
+		if hasCapture(s) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func uncapture(r *syntax.Regexp) *syntax.Regexp {
+	if r.Op == syntax.OpCapture {
+		// Captures only have one subexpression
+		r.Op = syntax.OpConcat
+		r.Cap = 0
+		r.Name = ""
+	}
+
+	for i, s := range r.Sub {
+		r.Sub[i] = uncapture(s)
+	}
+
+	return r
 }

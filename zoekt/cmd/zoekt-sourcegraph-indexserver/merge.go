@@ -2,22 +2,18 @@ package main
 
 import (
 	"bytes"
-	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"time"
 
-	"github.com/google/zoekt"
 	"github.com/grafana/regexp"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"gopkg.in/natefinch/lumberjack.v2"
+	"github.com/sourcegraph/zoekt/index"
+	"go.uber.org/atomic"
 )
-
-var reCompound = regexp.MustCompile(`compound-.*\.zoekt`)
 
 var metricShardMergingRunning = promauto.NewGauge(prometheus.GaugeOpts{
 	Name: "index_shard_merging_running",
@@ -30,62 +26,90 @@ var metricShardMergingDuration = promauto.NewHistogramVec(prometheus.HistogramOp
 	Buckets: prometheus.LinearBuckets(30, 30, 10),
 }, []string{"error"})
 
-// doMerge drives the merge process.
-func doMerge(dir string, targetSizeBytes int64, simulate bool) error {
+func pickCandidates(shards []candidate, targetSizeBytes int64) compound {
+	c := compound{}
+	for _, shard := range shards {
+		c.add(shard)
+		if c.size >= targetSizeBytes {
+			return c
+		}
+	}
+	return compound{}
+}
+
+var mergeRunning atomic.Bool
+
+func defaultMergeCmd(args ...string) *exec.Cmd {
+	cmd := exec.Command("zoekt-merge-index", "merge")
+	cmd.Args = append(cmd.Args, args...)
+	return cmd
+}
+
+// doMerge drives the merge process. It holds the lock on s.indexDir for the
+// duration of 1 merge, which might be several minutes, depending on the target
+// size of the compound shard.
+func (s *Server) doMerge() {
+	s.merge(defaultMergeCmd)
+}
+
+// same as doMerge but with a configurable merge command.
+func (s *Server) merge(mergeCmd func(args ...string) *exec.Cmd) {
+	// Guard against the user triggering competing merge jobs with the debug
+	// command.
+	if !mergeRunning.CompareAndSwap(false, true) {
+		infoLog.Printf("merge already running")
+		return
+	}
+	defer mergeRunning.Store(false)
+
 	metricShardMergingRunning.Set(1)
 	defer metricShardMergingRunning.Set(0)
 
-	wc := &lumberjack.Logger{
-		Filename:   filepath.Join(dir, "zoekt-merge-log.tsv"),
-		MaxSize:    100, // Megabyte
-		MaxBackups: 5,
-	}
+	// We keep creating compound shards until we run out of shards to merge or until
+	// we encounter an error during merging.
+	next := true
+	for next {
+		next = false
+		s.muIndexDir.Global(func() {
+			candidates, excluded := loadCandidates(s.IndexDir, s.mergeOpts)
+			infoLog.Printf("loadCandidates: candidates=%d excluded=%d", len(candidates), excluded)
 
-	if simulate {
-		debug.Println("simulating")
-	}
+			c := pickCandidates(candidates, s.mergeOpts.targetSizeBytes)
+			if len(c.shards) <= 1 {
+				infoLog.Printf("could not find enough shards to build a compound shard")
+				return
+			}
+			infoLog.Printf("start merging: shards=%d total_size=%.2fMiB", len(c.shards), float64(c.size)/(1024*1024))
 
-	shards, excluded := loadCandidates(dir)
-	debug.Printf("merging: found %d candidate shards, %d shards were excluded\n", len(shards), excluded)
-	if len(shards) == 0 {
-		return nil
-	}
+			var paths []string
+			for _, p := range c.shards {
+				paths = append(paths, p.path)
+			}
 
-	compounds, _ := generateCompounds(shards, targetSizeBytes)
-	debug.Printf("merging: generated %d compounds\n", len(compounds))
-	if len(compounds) == 0 {
-		return nil
-	}
-
-	var totalSizeBytes int64 = 0
-	totalShards := 0
-	for ix, comp := range compounds {
-		debug.Printf("compound %d: merging %d shards with total size %.2f MiB\n", ix, len(comp.shards), float64(comp.size)/(1024*1024))
-		if !simulate {
 			start := time.Now()
-			stdOut, stdErr, err := callMerge(comp.shards)
-			metricShardMergingDuration.WithLabelValues(strconv.FormatBool(err != nil)).Observe(time.Since(start).Seconds())
-			debug.Printf("callMerge: OUT: %s, ERR: %s\n", string(stdOut), string(stdErr))
-			if err != nil {
-				debug.Printf("error during merging compound %d, stdErr: %s, err: %s\n", ix, stdErr, err)
-				continue
-			}
-			// for len(comp.shards)<=1, callMerge is a NOP. Hence there is no need to log
-			// anything here.
-			if len(comp.shards) > 1 {
-				newCompoundName := reCompound.Find(stdErr)
-				now := time.Now()
-				for _, s := range comp.shards {
-					_, _ = fmt.Fprintf(wc, "%d\t%s\t%s\t%s\n", now.UTC().Unix(), "merge", filepath.Base(s.path), string(newCompoundName))
-				}
-			}
-		}
-		totalShards += len(comp.shards)
-		totalSizeBytes += comp.size
-	}
 
-	debug.Printf("total size: %.2f MiB, number of shards merged: %d\n", float64(totalSizeBytes)/(1024*1024), totalShards)
-	return nil
+			cmd := mergeCmd(paths...)
+
+			// zoekt-merge-index writes the full path of the new compound shard to stdout.
+			stdoutBuf := &bytes.Buffer{}
+			stderrBuf := &bytes.Buffer{}
+			cmd.Stdout = stdoutBuf
+			cmd.Stderr = stderrBuf
+
+			err := cmd.Run()
+
+			durationSeconds := time.Since(start).Seconds()
+			metricShardMergingDuration.WithLabelValues(strconv.FormatBool(err != nil)).Observe(durationSeconds)
+			if err != nil {
+				errorLog.Printf("error merging shards: stdout=%s, stderr=%s, durationSeconds=%.2f err=%s", stdoutBuf.String(), stderrBuf.String(), durationSeconds, err)
+				return
+			}
+
+			infoLog.Printf("finished merging: shard=%s durationSeconds=%.2f", stdoutBuf.String(), durationSeconds)
+
+			next = true
+		})
+	}
 }
 
 type candidate struct {
@@ -95,13 +119,13 @@ type candidate struct {
 	sizeBytes int64
 }
 
-// loadCandidates returns all shards eligable for merging.
-func loadCandidates(dir string) ([]candidate, int) {
+// loadCandidates returns all shards eligible for merging.
+func loadCandidates(dir string, opts mergeOpts) ([]candidate, int) {
 	excluded := 0
 
 	d, err := os.Open(dir)
 	if err != nil {
-		debug.Printf("failed to load candidates: %s", dir)
+		debugLog.Printf("failed to load candidates: %s", dir)
 		return []candidate{}, excluded
 	}
 	defer d.Close()
@@ -113,7 +137,7 @@ func loadCandidates(dir string) ([]candidate, int) {
 
 		fi, err := os.Stat(path)
 		if err != nil {
-			debug.Printf("stat failed for %s: %s", n, err)
+			debugLog.Printf("stat failed for %s: %s", n, err)
 			continue
 		}
 
@@ -121,7 +145,7 @@ func loadCandidates(dir string) ([]candidate, int) {
 			continue
 		}
 
-		if isExcluded(path, fi) {
+		if isExcluded(path, fi, opts) {
 			excluded++
 			continue
 		}
@@ -145,35 +169,55 @@ func hasMultipleShards(path string) bool {
 	return !os.IsNotExist(err)
 }
 
+type mergeOpts struct {
+	// targetSizeBytes is the target size in bytes for compound shards. The higher
+	// the value the more repositories a compound shard will contain and the bigger
+	// the potential for saving MEM. The savings in MEM come at the cost of a
+	// degraded search performance.
+	targetSizeBytes int64
+
+	// compound shards smaller than minSizeBytes will be deleted by vacuum.
+	minSizeBytes int64
+
+	// vacuumInterval is how often indexserver scans compound shards to remove
+	// tombstones.
+	vacuumInterval time.Duration
+
+	// mergeInterval defines how often indexserver runs the merge operation in
+	// the index directory.
+	mergeInterval time.Duration
+
+	// number of days since the last commit until we consider the shard for
+	// merging. For example, a value of 7 means that only repos that have been
+	// inactive for 7 days will be considered for merging.
+	minAgeDays int
+}
+
 // isExcluded returns true if a shard should not be merged, false otherwise.
 //
 // We need path and FileInfo because FileInfo does not contain the full path, see
 // discussion here https://github.com/golang/go/issues/32300.
-func isExcluded(path string, fi os.FileInfo) bool {
+func isExcluded(path string, fi os.FileInfo, opts mergeOpts) bool {
 	if hasMultipleShards(path) {
 		return true
 	}
 
-	repos, _, err := zoekt.ReadMetadataPath(path)
+	repos, _, err := index.ReadMetadataPath(path)
 	if err != nil {
-		debug.Printf("failed to load metadata for %s\n", fi.Name())
+		debugLog.Printf("failed to load metadata for %s\n", fi.Name())
 		return true
 	}
 
 	// Exclude compound shards from being merge targets. Why? We want repositories in a
 	// compound shard to be ordered based on their priority. The easiest way to
 	// enforce this is to delete the compound shard once it drops below a certain
-	// size (handeled by cleanup), reindex the repositories and merge them with other
+	// size (handled by cleanup), reindex the repositories and merge them with other
 	// shards in the correct order.
 	if len(repos) > 1 {
 		return true
 	}
 
-	if repos[0].LatestCommitDate.After(time.Now().AddDate(0, 0, -7)) {
-		return true
-	}
-
-	if priority, err := strconv.ParseFloat(repos[0].RawConfig["priority"], 64); err == nil && priority > 100 {
+	if repos[0].LatestCommitDate.After(time.Now().AddDate(0, 0, -opts.minAgeDays)) {
 		return true
 	}
 
@@ -188,65 +232,4 @@ type compound struct {
 func (c *compound) add(cand candidate) {
 	c.shards = append(c.shards, cand)
 	c.size += cand.sizeBytes
-}
-
-// generateCompounds groups simple shards into compound shards without performing
-// the actual merge. Shards that are not contained in any of the compound shards
-// are returned in the second argument.
-func generateCompounds(shards []candidate, targetSizeBytes int64) ([]compound, []candidate) {
-	compounds := make([]compound, 0)
-	cur := compound{}
-	for _, s := range shards {
-		cur.add(s)
-		if cur.size > targetSizeBytes {
-			compounds = append(compounds, cur)
-			cur = compound{}
-		}
-	}
-	return compounds, cur.shards
-}
-
-// callMerge calls zoekt-merge-index and captures its output. callMerge is a NOP
-// if len(shards) <= 1.
-func callMerge(shards []candidate) ([]byte, []byte, error) {
-	if len(shards) <= 1 {
-		return nil, nil, nil
-	}
-
-	cmd := exec.Command("zoekt-merge-index", "merge", "-")
-
-	outBuf := &bytes.Buffer{}
-	errBuf := &bytes.Buffer{}
-	cmd.Stdout = outBuf
-	cmd.Stderr = errBuf
-
-	wc, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	go func() {
-		for _, s := range shards {
-			_, _ = io.WriteString(wc, fmt.Sprintf("%s\n", s.path))
-		}
-		_ = wc.Close()
-	}()
-
-	err = cmd.Run()
-	// If err==nil we can safely delete the candidate shards. In case err!=nil we
-	// don't know if a compound shard was created or not, so it is best to just
-	// delete the candidate shards to avoid duplicate results in case a compound
-	// shard was created after all.
-	for _, s := range shards {
-		paths, err := zoekt.IndexFilePaths(s.path)
-		if err != nil {
-			debug.Printf("failed to remove s %s: %v", s.path, err)
-		}
-		for _, p := range paths {
-			if err := os.Remove(p); err != nil {
-				debug.Printf("failed to remove shard file %s: %v", p, err)
-			}
-		}
-	}
-	return outBuf.Bytes(), errBuf.Bytes(), err
 }

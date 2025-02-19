@@ -17,7 +17,7 @@ package web
 import (
 	"time"
 
-	"github.com/google/zoekt"
+	"github.com/sourcegraph/zoekt"
 )
 
 type ApiSearchResult struct {
@@ -28,9 +28,13 @@ type ApiSearchResult struct {
 type LastInput struct {
 	Query string
 	Num   int
+	Ctx   int
 
 	// If set, focus on the search box.
 	AutoFocus bool
+
+	// If true, the next search will run in debug mode.
+	Debug bool
 }
 
 // Result holds the data provided to the search results template.
@@ -50,12 +54,16 @@ type FileMatch struct {
 	ResultID string
 	Language string
 	// If this was a duplicate result, this will contain the file
-	// of the first match.
+	// of the first index.
 	DuplicateID string
 
 	Branches []string
 	Matches  []Match
 	URL      string
+
+	// Don't expose to caller of JSON API
+	Score      float64 `json:"-"`
+	ScoreDebug string  `json:"-"`
 }
 
 // Match holds the per line data provided to the search results template
@@ -67,6 +75,10 @@ type Match struct {
 	Fragments []Fragment
 	Before    string `json:",omitempty"`
 	After     string `json:",omitempty"`
+
+	// Don't expose to caller of JSON API
+	Score      float64 `json:"-"`
+	ScoreDebug string  `json:"-"`
 }
 
 // Fragment holds data of a single contiguous match within in a line

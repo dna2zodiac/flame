@@ -38,44 +38,6 @@ func BenchmarkRepoBranches_Encode(b *testing.B) {
 	}
 }
 
-func BenchmarkRepoBranches_Decode(b *testing.B) {
-	repoBranches := genRepoBranches(5_500_000)
-
-	var buf bytes.Buffer
-	if err := gob.NewEncoder(&buf).Encode(repoBranches); err != nil {
-		b.Fatal(err)
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for n := 0; n < b.N; n++ {
-		// We need to include gob.NewDecoder cost to avoid measuring encoding.
-		var repoBranches RepoBranches
-		if err := gob.NewDecoder(bytes.NewReader(buf.Bytes())).Decode(&repoBranches); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func TestRepoBranches_Marshal(t *testing.T) {
-	want := genRepoBranches(1000)
-
-	var buf bytes.Buffer
-	if err := gob.NewEncoder(&buf).Encode(want); err != nil {
-		t.Fatal(err)
-	}
-
-	var got RepoBranches
-	if err := gob.NewDecoder(bytes.NewReader(buf.Bytes())).Decode(&got); err != nil {
-		t.Fatal(err)
-	}
-
-	if diff := cmp.Diff(want, &got); diff != "" {
-		t.Fatalf("mismatch (-want +got):\n%s", diff)
-	}
-}
-
 func BenchmarkBranchesRepos_Encode(b *testing.B) {
 	brs := genBranchesRepos(5_500_000)
 
@@ -137,32 +99,90 @@ func TestBranchesRepos_Marshal(t *testing.T) {
 	}
 }
 
+func BenchmarkFileNameSet_Encode(b *testing.B) {
+	set := genFileNameSet(1000)
+
+	// do one write to amortize away the cost of gob registration
+	w := &countWriter{}
+	enc := gob.NewEncoder(w)
+	if err := enc.Encode(set); err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	b.ReportMetric(float64(w.n), "bytes")
+
+	for n := 0; n < b.N; n++ {
+		if err := enc.Encode(set); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkFileNameSet_Decode(b *testing.B) {
+	set := genFileNameSet(1000)
+
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(set); err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for n := 0; n < b.N; n++ {
+		// We need to include gob.NewDecoder cost to avoid measuring encoding.
+		var repoBranches FileNameSet
+		if err := gob.NewDecoder(bytes.NewReader(buf.Bytes())).Decode(&repoBranches); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func TestFileNameSet_Marshal(t *testing.T) {
+	for i := range []int{0, 1, 10, 100} {
+		want := genFileNameSet(i)
+
+		var buf bytes.Buffer
+		if err := gob.NewEncoder(&buf).Encode(want); err != nil {
+			t.Fatal(err)
+		}
+
+		var got FileNameSet
+		if err := gob.NewDecoder(bytes.NewReader(buf.Bytes())).Decode(&got); err != nil {
+			t.Fatal(err)
+		}
+
+		if diff := cmp.Diff(want, &got); diff != "" {
+			t.Fatalf("mismatch for set size %d (-want +got):\n%s", i, diff)
+		}
+	}
+}
+
+func genFileNameSet(size int) *FileNameSet {
+	set := make(map[string]struct{}, size)
+	for i := 0; i < size; i++ {
+		set[genName(i)] = struct{}{}
+	}
+	return &FileNameSet{Set: set}
+}
+
 // Generating 5.5M repos slows down the benchmark setup time, so we cache things.
 var genCache = map[string]interface{}{}
 
-func genRepoBranches(n int) *RepoBranches {
-	key := fmt.Sprintf("RepoBranches:%d", n)
-	val, ok := genCache[key]
-	if ok {
-		return val.(*RepoBranches)
-	}
-
-	genName := func(n int) string {
-		bs := make([]byte, 8)
-		binary.LittleEndian.PutUint64(bs, uint64(n))
-		return fmt.Sprintf("%x", sha256.Sum256(bs))[:10]
-	}
-
-	repoBranches := &RepoBranches{Set: map[string][]string{}}
+func genRepoBranches(n int) map[string][]string {
+	repoBranches := map[string][]string{}
 	orgIndex := 0
 	repoIndex := 0
 
 	for i := 0; i < n; i++ {
 		org := genName(orgIndex)
 		name := "github.com/" + org + "/" + genName(orgIndex*2+repoIndex)
-		repoBranches.Set[name] = []string{"HEAD"}
+		repoBranches[name] = []string{"HEAD"}
 		if repoIndex%50 == 0 {
-			repoBranches.Set[name] = append(repoBranches.Set[name], "more", "branches")
+			repoBranches[name] = append(repoBranches[name], "more", "branches")
 		}
 
 		if i%1000 == 0 {
@@ -173,8 +193,13 @@ func genRepoBranches(n int) *RepoBranches {
 		repoIndex++
 	}
 
-	genCache[key] = repoBranches
 	return repoBranches
+}
+
+func genName(n int) string {
+	bs := make([]byte, 8)
+	binary.LittleEndian.PutUint64(bs, uint64(n))
+	return fmt.Sprintf("%x", sha256.Sum256(bs))[:10]
 }
 
 func genBranchesRepos(n int) *BranchesRepos {
@@ -184,7 +209,7 @@ func genBranchesRepos(n int) *BranchesRepos {
 		return val.(*BranchesRepos)
 	}
 
-	set := genRepoBranches(n).Set
+	set := genRepoBranches(n)
 	br := map[string]*roaring.Bitmap{}
 	id := uint32(1)
 

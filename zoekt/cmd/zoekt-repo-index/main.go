@@ -12,27 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/* zoekt-repo-index indexes a repo-based repository.  The constituent
-git repositories should already have been downloaded to the
---repo_cache directory, eg.
-
-    go install github.com/google/zoekt/cmd/zoekt-repo-index &&
-
-    zoekt-repo-index -base_url https://gfiber.googlesource.com/ \
-      -manifest_repo_url https://gfiber.googlesource.com/manifests \
-      -manifest_rev_prefix=refs/heads/ \
-      -rev_prefix="refs/remotes/" \
-      -repo_cache ~/zoekt-serving/repos/ \
-      -shard_limit 50000000 \
-       master:default_unrestricted.xml
-*/
+// Command zoekt-repo-index indexes repository that uses the Android 'repo'
+// tool (https://android.googlesource.com/tools/repo). The constituent git
+// repositories should already have been downloaded to the --repo_cache
+// directory, for example:
+//
+// go install github.com/sourcegraph/zoekt/cmd/zoekt-repo-index &&
+//
+//	zoekt-repo-index -base_url https://gfiber.googlesource.com/ \
+//	  -manifest_repo_url https://gfiber.googlesource.com/manifests \
+//	  -manifest_rev_prefix=refs/heads/ \
+//	  -rev_prefix="refs/remotes/" \
+//	  -repo_cache ~/zoekt-serving/repos/ \
+//	  -shard_limit 50000000 \
+//	   master:default_unrestricted.xml
 package main
 
 import (
 	"crypto/sha1"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/url"
 	"path"
@@ -41,9 +41,10 @@ import (
 	"strings"
 
 	"github.com/google/slothfs/manifest"
-	"github.com/google/zoekt"
-	"github.com/google/zoekt/build"
-	"github.com/google/zoekt/gitindex"
+	"github.com/sourcegraph/zoekt"
+	"github.com/sourcegraph/zoekt/ignore"
+	"github.com/sourcegraph/zoekt/index"
+	"github.com/sourcegraph/zoekt/internal/gitindex"
 	"go.uber.org/automaxprocs/maxprocs"
 
 	git "github.com/go-git/go-git/v5"
@@ -127,7 +128,7 @@ func main() {
 	revPrefix := flag.String("rev_prefix", "refs/remotes/origin/", "prefix for references")
 	baseURLStr := flag.String("base_url", "", "base url to interpret repository names")
 	repoCacheDir := flag.String("repo_cache", "", "root for repository cache")
-	indexDir := flag.String("index", build.DefaultDir, "index directory for *.zoekt files")
+	indexDir := flag.String("index", index.DefaultDir, "index directory for *.zoekt files")
 	manifestRepoURL := flag.String("manifest_repo_url", "", "set a URL for a git repository holding manifest XML file. Provide the BRANCH:XML-FILE as further command-line arguments")
 	manifestRevPrefix := flag.String("manifest_rev_prefix", "refs/remotes/origin/", "prefixes for branches in manifest repository")
 	repoName := flag.String("name", "", "set repository name")
@@ -150,7 +151,7 @@ func main() {
 		*repoName = filepath.Join(u.Host, u.Path)
 	}
 
-	opts := build.Options{
+	opts := index.Options{
 		Parallelism: *parallelism,
 		SizeMax:     *sizeMax,
 		ShardMax:    *shardLimit,
@@ -194,7 +195,7 @@ func main() {
 		}
 
 		perBranch[br.branch] = files
-		for key, loc := range files {
+		for key, repo := range files {
 			_, ok := opts.SubRepositories[key.SubRepoPath]
 			if ok {
 				// This can be incorrect: if the layout of manifests
@@ -205,8 +206,8 @@ func main() {
 			}
 
 			desc := &zoekt.Repository{}
-			if err := gitindex.SetTemplatesFromOrigin(desc, loc.URL); err != nil {
-				log.Fatalf("SetTemplatesFromOrigin(%s): %v", loc.URL, err)
+			if err := gitindex.SetTemplatesFromOrigin(desc, repo.URL); err != nil {
+				log.Fatalf("SetTemplatesFromOrigin(%s): %v", repo.URL, err)
 			}
 
 			opts.SubRepositories[key.SubRepoPath] = desc
@@ -258,7 +259,7 @@ func main() {
 		return
 	}
 
-	builder, err := build.NewBuilder(opts)
+	builder, err := index.NewBuilder(opts)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -269,7 +270,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		doc := zoekt.Document{
+		doc := index.Document{
 			Name:              k.FullPath(),
 			Content:           data,
 			SubRepositoryPath: k.SubRepoPath,
@@ -318,14 +319,15 @@ func getManifest(repo *git.Repository, branch, path string) (*manifest.Manifest,
 	}
 	defer r.Close()
 
-	content, _ := ioutil.ReadAll(r)
+	content, _ := io.ReadAll(r)
 	return manifest.Parse(content)
 }
 
 // iterateManifest constructs a complete tree from the given Manifest.
 func iterateManifest(mf *manifest.Manifest,
 	baseURL url.URL, revPrefix string,
-	cache *gitindex.RepoCache) (map[fileKey]gitindex.BlobLocation, map[string]plumbing.Hash, error) {
+	cache *gitindex.RepoCache,
+) (map[fileKey]gitindex.BlobLocation, map[string]plumbing.Hash, error) {
 	allFiles := map[fileKey]gitindex.BlobLocation{}
 	allVersions := map[string]plumbing.Hash{}
 	for _, p := range mf.Project {
@@ -359,12 +361,13 @@ func iterateManifest(mf *manifest.Manifest,
 			return nil, nil, err
 		}
 
-		files, versions, err := gitindex.TreeToFiles(topRepo, tree, projURL.String(), cache)
+		rw := gitindex.NewRepoWalker(topRepo, projURL.String(), cache)
+		subVersions, err := rw.CollectFiles(tree, rev, &ignore.Matcher{})
 		if err != nil {
 			return nil, nil, err
 		}
 
-		for key, repo := range files {
+		for key, repo := range rw.Files {
 			allFiles[fileKey{
 				SubRepoPath: filepath.Join(p.GetPath(), key.SubRepoPath),
 				Path:        key.Path,
@@ -372,7 +375,7 @@ func iterateManifest(mf *manifest.Manifest,
 			}] = repo
 		}
 
-		for path, version := range versions {
+		for path, version := range subVersions {
 			allVersions[filepath.Join(p.GetPath(), path)] = version
 		}
 	}

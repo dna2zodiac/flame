@@ -16,13 +16,13 @@ package web
 
 import (
 	"bytes"
-	"html/template"
 	"log"
 	"net/url"
 	"strconv"
 	"strings"
+	"text/template"
 
-	"github.com/google/zoekt"
+	"github.com/sourcegraph/zoekt"
 )
 
 func (s *Server) formatResults(result *zoekt.SearchResult, query string, localPrint bool) ([]*FileMatch, error) {
@@ -33,12 +33,12 @@ func (s *Server) formatResults(result *zoekt.SearchResult, query string, localPr
 	if !localPrint {
 		for repo, str := range result.RepoURLs {
 			if str != "" {
-				templateMap[repo] = s.getTemplate(str)
+				templateMap[repo] = s.getTextTemplate(str)
 			}
 		}
 		for repo, str := range result.LineFragments {
 			if str != "" {
-				fragmentMap[repo] = s.getTemplate(str)
+				fragmentMap[repo] = s.getTextTemplate(str)
 			}
 		}
 	}
@@ -92,11 +92,13 @@ func (s *Server) formatResults(result *zoekt.SearchResult, query string, localPr
 	seenFiles := map[string]string{}
 	for _, f := range result.Files {
 		fMatch := FileMatch{
-			FileName: f.FileName,
-			Repo:     f.Repository,
-			ResultID: f.Repository + ":" + f.FileName,
-			Branches: f.Branches,
-			Language: f.Language,
+			FileName:   f.FileName,
+			Repo:       f.Repository,
+			ResultID:   f.Repository + ":" + f.FileName,
+			Branches:   f.Branches,
+			Language:   f.Language,
+			Score:      f.Score,
+			ScoreDebug: f.Debug,
 		}
 
 		if dup, ok := seenFiles[string(f.Checksum)]; ok {
@@ -122,6 +124,9 @@ func (s *Server) formatResults(result *zoekt.SearchResult, query string, localPr
 				FileName: f.FileName,
 				LineNum:  m.LineNumber,
 				URL:      fMatch.URL + fragment,
+
+				Score:      m.Score,
+				ScoreDebug: m.DebugScore,
 			}
 
 			md.Before = string(m.Before)

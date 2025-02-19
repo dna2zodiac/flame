@@ -10,9 +10,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This binary fetches all repos of a project, and of a specific type, in case
-// these are specified, and clones them. By default it fetches and clones all
-// existing repos.
+// Command zoekt-mirror-bitbucket-server fetches all repos of a bitbucket project,
+// optionally of a specific type, and clones them.
 package main
 
 import (
@@ -20,7 +19,6 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -31,7 +29,7 @@ import (
 
 	bitbucketv1 "github.com/gfleury/go-bitbucket-v1"
 
-	"github.com/google/zoekt/gitindex"
+	"github.com/sourcegraph/zoekt/internal/gitindex"
 )
 
 func main() {
@@ -74,7 +72,7 @@ func main() {
 	if *credentialsFile == "" {
 		log.Fatal("must set --credentials")
 	} else {
-		content, err := ioutil.ReadFile(*credentialsFile)
+		content, err := os.ReadFile(*credentialsFile)
 		if err != nil {
 			log.Fatal(err)
 		}

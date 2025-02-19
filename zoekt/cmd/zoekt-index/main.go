@@ -12,21 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Command zoekt-index indexes a directory of files.
 package main
 
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
 	"strings"
 
-	"github.com/google/zoekt"
-	"github.com/google/zoekt/build"
-	"github.com/google/zoekt/cmd"
+	"github.com/sourcegraph/zoekt/cmd"
+	"github.com/sourcegraph/zoekt/index"
 	"go.uber.org/automaxprocs/maxprocs"
 )
 
@@ -64,6 +63,13 @@ func main() {
 	ignoreDirs := flag.String("ignore_dirs", ".git,.hg,.svn", "comma separated list of directories to ignore.")
 	flag.Parse()
 
+	if flag.NArg() == 0 {
+		fmt.Fprintf(flag.CommandLine.Output(), "USAGE: %s [options] PATHS...\n", filepath.Base(os.Args[0]))
+		fmt.Fprintln(flag.CommandLine.Output(), "Options:")
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
+
 	// Tune GOMAXPROCS to match Linux container CPU quota.
 	_, _ = maxprocs.Set()
 
@@ -97,14 +103,14 @@ func main() {
 	}
 }
 
-func indexArg(arg string, opts build.Options, ignore map[string]struct{}) error {
+func indexArg(arg string, opts index.Options, ignore map[string]struct{}) error {
 	dir, err := filepath.Abs(filepath.Clean(arg))
 	if err != nil {
 		return err
 	}
 
 	opts.RepositoryDescription.Name = filepath.Base(dir)
-	builder, err := build.NewBuilder(opts)
+	builder, err := index.NewBuilder(opts)
 	if err != nil {
 		return err
 	}
@@ -129,7 +135,7 @@ func indexArg(arg string, opts build.Options, ignore map[string]struct{}) error 
 	for f := range comm {
 		displayName := strings.TrimPrefix(f.name, dir+"/")
 		if f.size > int64(opts.SizeMax) && !opts.IgnoreSizeMax(displayName) {
-			if err := builder.Add(zoekt.Document{
+			if err := builder.Add(index.Document{
 				Name:       displayName,
 				SkipReason: fmt.Sprintf("document size %d larger than limit %d", f.size, opts.SizeMax),
 			}); err != nil {
@@ -137,7 +143,7 @@ func indexArg(arg string, opts build.Options, ignore map[string]struct{}) error 
 			}
 			continue
 		}
-		content, err := ioutil.ReadFile(f.name)
+		content, err := os.ReadFile(f.name)
 		if err != nil {
 			return err
 		}

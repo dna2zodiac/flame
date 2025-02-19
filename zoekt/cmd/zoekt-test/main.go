@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// zoekt-test compares the search engine results with raw substring search
+// Command zoekt-test compares the zoekt results with raw substring search.
 package main
 
 import (
@@ -21,7 +21,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -32,10 +31,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/zoekt"
-	"github.com/google/zoekt/build"
-	"github.com/google/zoekt/query"
-	"github.com/google/zoekt/shards"
+	"github.com/sourcegraph/zoekt"
+	"github.com/sourcegraph/zoekt/index"
+	"github.com/sourcegraph/zoekt/internal/shards"
+	"github.com/sourcegraph/zoekt/query"
 )
 
 func readTree(dir string) (map[string][]byte, error) {
@@ -55,7 +54,7 @@ func readTree(dir string) (map[string][]byte, error) {
 
 	res := map[string][]byte{}
 	for _, n := range fns {
-		c, err := ioutil.ReadFile(n)
+		c, err := os.ReadFile(n)
 		if err != nil {
 			return nil, err
 		}
@@ -67,13 +66,13 @@ func readTree(dir string) (map[string][]byte, error) {
 }
 
 func compare(dir, patfile string, caseSensitive bool) error {
-	indexDir, err := ioutil.TempDir("", "")
+	indexDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(indexDir)
 
-	var opts build.Options
+	var opts index.Options
 	opts.SetDefaults()
 	opts.IndexDir = indexDir
 
@@ -85,7 +84,7 @@ func compare(dir, patfile string, caseSensitive bool) error {
 		return fmt.Errorf("no contents")
 	}
 
-	builder, err := build.NewBuilder(opts)
+	builder, err := index.NewBuilder(opts)
 	if err != nil {
 		return err
 	}
@@ -170,8 +169,10 @@ func compare(dir, patfile string, caseSensitive bool) error {
 	return nil
 }
 
-var memprofile = flag.String("memprofile", "", "write memory profile to `file`")
-var cpuprofile = flag.String("cpuprofile", "", "write memory profile to `file`")
+var (
+	memprofile = flag.String("mem_profile", "", "write memory profile to `file`")
+	cpuprofile = flag.String("cpu_profile", "", "write cpu profile to `file`")
+)
 
 func testLoadIndexDir(indexDir string) {
 	var a, b runtime.MemStats

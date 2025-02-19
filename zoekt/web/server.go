@@ -28,13 +28,16 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	texttemplate "text/template"
 	"time"
 
-	"github.com/google/zoekt"
-	"github.com/google/zoekt/query"
-	"github.com/google/zoekt/rpc"
-	"github.com/google/zoekt/stream"
 	"github.com/grafana/regexp"
+	"github.com/sourcegraph/zoekt/index"
+	zjson "github.com/sourcegraph/zoekt/internal/json"
+
+	"github.com/sourcegraph/zoekt"
+	"github.com/sourcegraph/zoekt/internal/tenant/systemtenant"
+	"github.com/sourcegraph/zoekt/query"
 )
 
 var Funcmap = template.FuncMap{
@@ -71,6 +74,9 @@ var Funcmap = template.FuncMap{
 			return post
 		}
 		return fmt.Sprintf("%s...(%d bytes skipped)...", post[:limit], len(post)-limit)
+	},
+	"TrimTrailingNewline": func(s string) string {
+		return strings.TrimSuffix(s, "\n")
 	},
 	"JsonText": jsonTextForTemplate,
 }
@@ -115,8 +121,9 @@ type Server struct {
 
 	startTime time.Time
 
-	templateMu    sync.Mutex
-	templateCache map[string]*template.Template
+	templateMu        sync.Mutex
+	templateCache     map[string]*template.Template
+	textTemplateCache map[string]*texttemplate.Template
 
 	lastStatsMu sync.Mutex
 	lastStats   *zoekt.RepoStats
@@ -137,10 +144,27 @@ func (s *Server) getTemplate(str string) *template.Template {
 
 	t, err := template.New("cache").Parse(str)
 	if err != nil {
-		log.Printf("template parse error: %v", err)
+		log.Printf("html template parse error: %v", err)
 		t = template.Must(template.New("empty").Parse(""))
 	}
 	s.templateCache[str] = t
+	return t
+}
+
+func (s *Server) getTextTemplate(str string) *texttemplate.Template {
+	s.templateMu.Lock()
+	defer s.templateMu.Unlock()
+	t := s.textTemplateCache[str]
+	if t != nil {
+		return t
+	}
+
+	t, err := index.ParseTemplate(str)
+	if err != nil {
+		log.Printf("text template parse error: %v", err)
+		t = texttemplate.Must(texttemplate.New("empty").Parse(""))
+	}
+	s.textTemplateCache[str] = t
 	return t
 }
 
@@ -165,6 +189,7 @@ func NewMux(s *Server) (*http.ServeMux, error) {
 	}
 
 	s.templateCache = map[string]*template.Template{}
+	s.textTemplateCache = map[string]*texttemplate.Template{}
 	s.startTime = time.Now()
 
 	mux := http.NewServeMux()
@@ -177,8 +202,7 @@ func NewMux(s *Server) (*http.ServeMux, error) {
 		mux.HandleFunc("/print", s.servePrint)
 	}
 	if s.RPC {
-		mux.Handle(rpc.DefaultRPCPath, rpc.Server(traceAwareSearcher{s.Searcher}))       // /rpc
-		mux.Handle(stream.DefaultSSEPath, stream.Server(traceAwareSearcher{s.Searcher})) // /stream
+		mux.Handle("/api/", http.StripPrefix("/api", zjson.JSONServer(traceAwareSearcher{s.Searcher})))
 	}
 
 	mux.HandleFunc("/healthz", s.serveHealthz)
@@ -191,7 +215,10 @@ func (s *Server) serveHealthz(w http.ResponseWriter, r *http.Request) {
 	q := &query.Const{Value: true}
 	opts := &zoekt.SearchOptions{ShardMaxMatchCount: 1, TotalMaxMatchCount: 1, MaxDocDisplayCount: 1}
 
-	result, err := s.Searcher.Search(r.Context(), q, opts)
+	// We need to use WithUnsafeContext here because we want to perform a full
+	// search returning results. The result of this search is not used for anything
+	// other than determining if the server is healthy.
+	result, err := s.Searcher.Search(systemtenant.WithUnsafeContext(r.Context()), q, opts)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("not ready: %v", err), http.StatusInternalServerError)
 		return
@@ -236,6 +263,9 @@ func (s *Server) serveSearchErr(w http.ResponseWriter, r *http.Request) (*ApiSea
 	}
 
 	qvals := r.URL.Query()
+
+	debugScore, _ := strconv.ParseBool(qvals.Get("debug"))
+
 	queryStr := qvals.Get("q")
 	if queryStr == "" {
 		return nil, fmt.Errorf("no query found")
@@ -279,44 +309,22 @@ func (s *Server) serveSearchErr(w http.ResponseWriter, r *http.Request) (*ApiSea
 	}
 
 	numCtxLines := 0
-	if qvals.Get("format") == "json" {
-		if ctxLinesStr := qvals.Get("ctx"); ctxLinesStr != "" {
-			numCtxLines, err = strconv.Atoi(ctxLinesStr)
-			if err != nil || numCtxLines < 0 || numCtxLines > 10 {
-				return nil, fmt.Errorf("Number of context lines must be between 0 and 10")
-			}
+	if ctxLinesStr := qvals.Get("ctx"); ctxLinesStr != "" {
+		numCtxLines, err = strconv.Atoi(ctxLinesStr)
+		if err != nil || numCtxLines < 0 || numCtxLines > 10 {
+			return nil, fmt.Errorf("Number of context lines must be between 0 and 10")
 		}
 	}
 	sOpts.NumContextLines = numCtxLines
 
 	sOpts.SetDefaults()
+	sOpts.MaxDocDisplayCount = num
+	sOpts.DebugScore = debugScore
 
 	ctx := r.Context()
-	if result, err := s.Searcher.Search(ctx, q, &zoekt.SearchOptions{EstimateDocCount: true}); err != nil {
+	if err := zjson.CalculateDefaultSearchLimits(ctx, q, s.Searcher, &sOpts); err != nil {
 		return nil, err
-	} else if numdocs := result.ShardFilesConsidered; numdocs > 10000 {
-		// If the search touches many shards and many files, we
-		// have to limit the number of matches.  This setting
-		// is based on the number of documents eligible after
-		// considering reponames, so large repos (both
-		// android, chromium are about 500k files) aren't
-		// covered fairly.
-
-		// 10k docs, 50 num -> max match = (250 + 250 / 10)
-		sOpts.ShardMaxMatchCount = num*5 + (5*num)/(numdocs/1000)
-
-		// 10k docs, 50 num -> max important match = 4
-		sOpts.ShardMaxImportantMatch = num/20 + num/(numdocs/500)
-	} else {
-		// Virtually no limits for a small corpus; important
-		// matches are just as expensive as normal matches.
-		n := numdocs + num*100
-		sOpts.ShardMaxImportantMatch = n
-		sOpts.ShardMaxMatchCount = n
-		sOpts.TotalMaxMatchCount = n
-		sOpts.TotalMaxImportantMatch = n
 	}
-	sOpts.MaxDocDisplayCount = num
 
 	result, err := s.Searcher.Search(ctx, q, &sOpts)
 	if err != nil {
@@ -332,6 +340,7 @@ func (s *Server) serveSearchErr(w http.ResponseWriter, r *http.Request) (*ApiSea
 		Last: LastInput{
 			Query:     queryStr,
 			Num:       num,
+			Ctx:       numCtxLines,
 			AutoFocus: true,
 		},
 		Stats:       result.Stats,
@@ -343,6 +352,8 @@ func (s *Server) serveSearchErr(w http.ResponseWriter, r *http.Request) (*ApiSea
 		// Suppress queueing stats if they are neglible.
 		res.Stats.Wait = 0
 	}
+
+	res.Last.Debug = debugScore
 	return &ApiSearchResult{Result: &res}, nil
 }
 
@@ -372,13 +383,7 @@ func (s *Server) fetchStats(ctx context.Context) (*zoekt.RepoStats, error) {
 		return nil, err
 	}
 
-	stats = &zoekt.RepoStats{}
-	names := map[string]struct{}{}
-	for _, r := range repos.Repos {
-		stats.Add(&r.Stats)
-		names[r.Repository.Name] = struct{}{}
-	}
-	stats.Repos = len(names)
+	stats = &repos.Stats
 
 	s.lastStatsMu.Lock()
 	s.lastStatsTS = time.Now()
@@ -541,7 +546,7 @@ func (s *Server) serveListReposErr(q query.Q, qStr string, r *http.Request) (*Re
 	}
 
 	for _, r := range repos.Repos {
-		t := s.getTemplate(r.Repository.CommitURLTemplate)
+		t := s.getTextTemplate(r.Repository.CommitURLTemplate)
 
 		repo := Repository{
 			Name:       r.Repository.Name,
@@ -587,7 +592,6 @@ func (s *Server) servePrintErr(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	repoRe, err := regexp.Compile("^" + regexp.QuoteMeta(repoStr) + "$")
-
 	if err != nil {
 		return err
 	}
@@ -622,6 +626,13 @@ func (s *Server) servePrintErr(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	f := result.Files[0]
+
+	if qvals.Get("format") == "raw" {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		_, _ = w.Write(f.Content)
+		return nil
+	}
 
 	byteLines := bytes.Split(f.Content, []byte{'\n'})
 	strLines := make([]string, 0, len(byteLines))

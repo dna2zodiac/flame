@@ -20,8 +20,8 @@ import (
 	"log"
 	"regexp/syntax"
 
-	"github.com/go-enry/go-enry/v2"
 	"github.com/grafana/regexp"
+	"github.com/sourcegraph/zoekt/internal/languages"
 )
 
 var _ = log.Printf
@@ -119,35 +119,60 @@ func parseExpr(in []byte) (Q, int, error) {
 		expr = &caseQ{text}
 	case tokRepo:
 		r, err := regexp.Compile(text)
-
 		if err != nil {
 			return nil, 0, err
 		}
 
 		expr = &Repo{r}
+	case tokArchived:
+		switch text {
+		case "yes":
+			expr = RawConfig(RcOnlyArchived)
+		case "no":
+			expr = RawConfig(RcNoArchived)
+		default:
+			return nil, 0, fmt.Errorf("query: unknown archived argument %q, want {yes,no}", text)
+		}
+	case tokFork:
+		switch text {
+		case "yes":
+			expr = RawConfig(RcOnlyForks)
+		case "no":
+			expr = RawConfig(RcNoForks)
+		default:
+			return nil, 0, fmt.Errorf("query: unknown fork argument %q, want {yes,no}", text)
+		}
+	case tokPublic:
+		switch text {
+		case "yes":
+			expr = RawConfig(RcOnlyPublic)
+		case "no":
+			expr = RawConfig(RcOnlyPrivate)
+		default:
+			return nil, 0, fmt.Errorf("query: unknown public argument %q, want {yes,no}", text)
+		}
 	case tokBranch:
 		expr = &Branch{Pattern: text}
 	case tokText, tokRegex:
-		q, err := regexpQuery(text, false, false)
+		q, err := RegexpQuery(text, false, false)
 		if err != nil {
 			return nil, 0, err
 		}
 		expr = q
 	case tokFile:
-		q, err := regexpQuery(text, false, true)
+		q, err := RegexpQuery(text, false, true)
 		if err != nil {
 			return nil, 0, err
 		}
 		expr = q
-
 	case tokContent:
-		q, err := regexpQuery(text, true, false)
+		q, err := RegexpQuery(text, true, false)
 		if err != nil {
 			return nil, 0, err
 		}
 		expr = q
 	case tokLang:
-		canonical, ok := enry.GetLanguageByAlias(text)
+		canonical, ok := languages.GetLanguageByAlias(text)
 		if !ok {
 			expr = &Const{false}
 		} else {
@@ -159,7 +184,7 @@ func parseExpr(in []byte) (Q, int, error) {
 			return nil, 0, fmt.Errorf("the sym: atom must have an argument")
 		}
 
-		q, err := regexpQuery(text, false, false)
+		q, err := RegexpQuery(text, false, false)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -221,9 +246,9 @@ func parseExpr(in []byte) (Q, int, error) {
 
 const regexpFlags syntax.Flags = syntax.ClassNL | syntax.PerlX | syntax.UnicodeGroups
 
-// regexpQuery parses an atom into either a regular expression, or a
+// RegexpQuery parses an atom into either a regular expression, or a
 // simple substring atom.
-func regexpQuery(text string, content, file bool) (Q, error) {
+func RegexpQuery(text string, content, file bool) (Q, error) {
 	var expr Q
 
 	// if specify path from repo root like `f:/path/to/folder`
@@ -241,6 +266,8 @@ func regexpQuery(text string, content, file bool) (Q, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	r = OptimizeRegexp(r, regexpFlags)
 
 	if r.Op == syntax.OpLiteral {
 		expr = &Substring{
@@ -373,17 +400,23 @@ const (
 	tokLang       = 12
 	tokSym        = 13
 	tokType       = 14
+	tokArchived   = 15
+	tokPublic     = 16
+	tokFork       = 17
 )
 
 var tokNames = map[int]string{
+	tokArchived:   "Archived",
 	tokBranch:     "Branch",
 	tokCase:       "Case",
 	tokError:      "Error",
 	tokFile:       "File",
+	tokFork:       "Fork",
 	tokNegate:     "Negate",
 	tokOr:         "Or",
 	tokParenClose: "ParenClose",
 	tokParenOpen:  "ParenOpen",
+	tokPublic:     "Public",
 	tokRegex:      "Regex",
 	tokRepo:       "Repo",
 	tokText:       "Text",
@@ -393,20 +426,23 @@ var tokNames = map[int]string{
 }
 
 var prefixes = map[string]int{
-	"b:":       tokBranch,
-	"branch:":  tokBranch,
-	"c:":       tokContent,
-	"case:":    tokCase,
-	"content:": tokContent,
-	"f:":       tokFile,
-	"file:":    tokFile,
-	"r:":       tokRepo,
-	"regex:":   tokRegex,
-	"repo:":    tokRepo,
-	"lang:":    tokLang,
-	"sym:":     tokSym,
-	"t:":       tokType,
-	"type:":    tokType,
+	"archived:": tokArchived,
+	"b:":        tokBranch,
+	"branch:":   tokBranch,
+	"c:":        tokContent,
+	"case:":     tokCase,
+	"content:":  tokContent,
+	"f:":        tokFile,
+	"file:":     tokFile,
+	"fork:":     tokFork,
+	"public:":   tokPublic,
+	"r:":        tokRepo,
+	"regex:":    tokRegex,
+	"repo:":     tokRepo,
+	"lang:":     tokLang,
+	"sym:":      tokSym,
+	"t:":        tokType,
+	"type:":     tokType,
 }
 
 var reservedWords = map[string]int{

@@ -24,7 +24,6 @@ var Top = template.New("top").Funcs(Funcmap)
 
 // TemplateText contains the text of the standard templates.
 var TemplateText = map[string]string{
-
 	"head": `
 <head>
 <meta charset="utf-8">
@@ -119,6 +118,8 @@ var TemplateText = map[string]string{
             <input class="form-control" type="number" id="maxhits" name="num" value="{{.Num}}">
           </div>
           <button class="btn btn-primary">Search</button>
+          <!--Hack: we use a hidden form field to keep track of the debug flag across searches-->
+          {{if .Debug}}<input id="debug" name="debug" type="hidden" value="{{.Debug}}">{{end}}
         </div>
       </form>
     </div>
@@ -170,6 +171,9 @@ document.onkeydown=function(e){
           <dt><a href="search?q=-Path%5c+file+Stream">-Path\ file Stream</a></dt><dd>search "Stream", but exclude files containing "Path File"</dd>
           <dt><a href="search?q=sym:data">sym:data</a></span></dt><dd>search for symbol definitions containing "data"</dd>
           <dt><a href="search?q=phone+r:droid">phone r:droid</a></dt><dd>search for "phone" in repositories whose name contains "droid"</dd>
+          <dt><a href="search?q=phone+archived:no">phone archived:no</a></dt><dd>search for "phone" in repositories that are not archived</dd>
+          <dt><a href="search?q=phone+fork:no">phone fork:no</a></dt><dd>search for "phone" in repositories that are not forks</dd>
+          <dt><a href="search?q=phone+public:no">phone public:no</a></dt><dd>search for "phone" in repositories that are not public</dd>
           <dt><a href="search?q=phone+b:master">phone b:master</a></dt><dd>for Git repos, find "phone" in files in branches whose name contains "master".</dd>
           <dt><a href="search?q=phone+b:HEAD">phone b:HEAD</a></dt><dd>for Git repos, find "phone" in the default ('HEAD') branch.</dd>
         </dl>
@@ -225,11 +229,11 @@ document.onkeydown=function(e){
           <th>
             {{if .URL}}<a name="{{.ResultID}}" class="result"></a><a href="{{.URL}}" >{{else}}<a name="{{.ResultID}}">{{end}}
             <small>
-              {{.Repo}}:{{.FileName}}</a>:
+              {{.Repo}}:{{.FileName}} {{if .ScoreDebug}}<i>({{.ScoreDebug}})</i>{{end}}</a>:
               <span style="font-weight: normal">[ {{if .Branches}}{{range .Branches}}<span class="label label-default">{{.}}</span>,{{end}}{{end}} ]</span>
               {{if .Language}}<button
                    title="restrict search to files written in {{.Language}}"
-                   onclick="zoektAddQ('lang:{{.Language}}')" class="label label-primary">language {{.Language}}</button></span>{{end}}
+                   onclick="zoektAddQ('lang:&quot;{{.Language}}&quot;')" class="label label-primary">language {{.Language}}</button></span>{{end}}
               {{if .DuplicateID}}<a class="label label-dup" href="#{{.DuplicateID}}">Duplicate result</a>{{end}}
             </small>
           </th>
@@ -238,13 +242,15 @@ document.onkeydown=function(e){
       {{if not .DuplicateID}}
       <tbody>
         {{range .Matches}}
+        {{if gt .LineNum 0}}
         <tr>
           <td style="background-color: rgba(238, 238, 255, 0.6);">
-            <pre class="inline-pre"><span class="noselect">{{if .URL}}<a href="{{.URL}}">{{end}}<u>{{.LineNum}}</u>{{if .URL}}</a>{{end}}: </span>{{range .Fragments}}{{LimitPre 100 .Pre}}<b>{{.Match}}</b>{{LimitPost 100 .Post}}{{end}}</pre>
+            <pre class="inline-pre"><span class="noselect">{{if .URL}}<a href="{{.URL}}">{{end}}<u>{{.LineNum}}</u>{{if .URL}}</a>{{end}}: </span>{{range .Fragments}}{{LimitPre 100 .Pre}}<b>{{.Match}}</b>{{LimitPost 100 (TrimTrailingNewline .Post)}}{{end}} {{if .ScoreDebug}}<i>({{.ScoreDebug}})</i>{{end}}</pre>
           </td>
         </tr>
         {{end}}
       </tbody>
+      {{end}}
       {{end}}
     </table>
     {{end}}
@@ -366,7 +372,7 @@ document.onkeydown=function(e){
 
   <div class="container">
     <p>
-      This is <a href="http://github.com/google/zoekt"><em>zoekt</em> (IPA: /zukt/)</a>,
+      This is <a href="http://github.com/sourcegraph/zoekt"><em>zoekt</em> (IPA: /zukt/)</a>,
       an open-source full text search engine. It's pronounced roughly as you would
       pronounce "zooked" in English.
     </p>

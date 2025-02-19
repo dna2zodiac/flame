@@ -17,7 +17,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -48,6 +48,11 @@ type ConfigEntry struct {
 	GerritApiURL           string
 	Topics                 []string
 	ExcludeTopics          []string
+	Active                 bool
+	NoArchived             bool
+	GerritFetchMetaConfig  bool
+	GerritRepoNameFormat   string
+	ExcludeUserRepos       bool
 }
 
 func randomize(entries []ConfigEntry) []ConfigEntry {
@@ -77,9 +82,9 @@ func readConfigURL(u string) ([]ConfigEntry, error) {
 		}
 		defer rep.Body.Close()
 
-		body, readErr = ioutil.ReadAll(rep.Body)
+		body, readErr = io.ReadAll(rep.Body)
 	} else {
-		body, readErr = ioutil.ReadFile(u)
+		body, readErr = os.ReadFile(u)
 	}
 
 	if readErr != nil {
@@ -188,6 +193,9 @@ func executeMirror(cfg []ConfigEntry, repoDir string, pendingRepos chan<- string
 			for _, topic := range c.ExcludeTopics {
 				cmd.Args = append(cmd.Args, "-exclude_topic", topic)
 			}
+			if c.NoArchived {
+				cmd.Args = append(cmd.Args, "-no_archived")
+			}
 		} else if c.GitilesURL != "" {
 			cmd = exec.Command("zoekt-mirror-gitiles",
 				"-dest", repoDir, "-name", c.Name)
@@ -236,12 +244,18 @@ func executeMirror(cfg []ConfigEntry, repoDir string, pendingRepos chan<- string
 			if c.OnlyPublic {
 				cmd.Args = append(cmd.Args, "-public")
 			}
+			if c.ExcludeUserRepos {
+				cmd.Args = append(cmd.Args, "-exclude_user")
+			}
 			if c.CredentialPath != "" {
 				cmd.Args = append(cmd.Args, "-token", c.CredentialPath)
 			}
+			if c.NoArchived {
+				cmd.Args = append(cmd.Args, "-no_archived")
+			}
 		} else if c.GerritApiURL != "" {
 			cmd = exec.Command("zoekt-mirror-gerrit",
-				"-dest", repoDir)
+				"-dest", repoDir, "-delete")
 			if c.CredentialPath != "" {
 				cmd.Args = append(cmd.Args, "-http-credentials", c.CredentialPath)
 			}
@@ -251,7 +265,19 @@ func executeMirror(cfg []ConfigEntry, repoDir string, pendingRepos chan<- string
 			if c.Exclude != "" {
 				cmd.Args = append(cmd.Args, "-exclude", c.Exclude)
 			}
+			if c.Active {
+				cmd.Args = append(cmd.Args, "-active")
+			}
+			if c.GerritFetchMetaConfig {
+				cmd.Args = append(cmd.Args, "-fetch-meta-config")
+			}
+			if c.GerritRepoNameFormat != "" {
+				cmd.Args = append(cmd.Args, "-repo-name-format", c.GerritRepoNameFormat)
+			}
 			cmd.Args = append(cmd.Args, c.GerritApiURL)
+		} else {
+			log.Printf("executeMirror: ignoring config, because it does not contain any valid repository definition: %v", c)
+			continue
 		}
 
 		stdout, _ := loggedRun(cmd)

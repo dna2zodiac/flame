@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Command zoekt-git-index indexes a single git repository. It works directly with git
+// repositories and supports git-specific features like branches and submodules.
 package main
 
 import (
@@ -19,14 +21,18 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
 
-	"github.com/google/zoekt/cmd"
-	"github.com/google/zoekt/gitindex"
+	"github.com/dustin/go-humanize"
+	"github.com/sourcegraph/zoekt/cmd"
+	"github.com/sourcegraph/zoekt/internal/ctags"
+	"github.com/sourcegraph/zoekt/internal/gitindex"
+	"github.com/sourcegraph/zoekt/internal/profiler"
 	"go.uber.org/automaxprocs/maxprocs"
 )
 
-func main() {
+func run() int {
 	allowMissing := flag.Bool("allow_missing_branches", false, "allow missing branches.")
 	submodules := flag.Bool("submodules", true, "if set to false, do not recurse into submodules")
 	branchesStr := flag.String("branches", "HEAD", "git branches to index.")
@@ -36,10 +42,28 @@ func main() {
 	repoCacheDir := flag.String("repo_cache", "", "directory holding bare git repos, named by URL. "+
 		"this is used to find repositories for submodules. "+
 		"It also affects name if the indexed repository is under this directory.")
+	isDelta := flag.Bool("delta", false, "whether we should use delta build")
+	deltaShardNumberFallbackThreshold := flag.Uint64("delta_threshold", 0, "upper limit on the number of preexisting shards that can exist before attempting a delta build (0 to disable fallback behavior)")
+	languageMap := flag.String("language_map", "", "a mapping between a language and its ctags processor (a:0,b:3).")
+
+	cpuProfile := flag.String("cpu_profile", "", "write cpu profile to `file`")
+
 	flag.Parse()
 
 	// Tune GOMAXPROCS to match Linux container CPU quota.
 	_, _ = maxprocs.Set()
+
+	if *cpuProfile != "" {
+		f, err := os.Create(*cpuProfile)
+		if err != nil {
+			log.Fatal("could not create CPU profile: ", err)
+		}
+		defer f.Close() // error handling omitted for example
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("could not start CPU profile: ", err)
+		}
+		defer pprof.StopCPUProfile()
+	}
 
 	if *repoCacheDir != "" {
 		dir, err := filepath.Abs(*repoCacheDir)
@@ -48,7 +72,9 @@ func main() {
 		}
 		*repoCacheDir = dir
 	}
+
 	opts := cmd.OptionsFromFlags()
+	opts.IsDelta = *isDelta
 
 	var branches []string
 	if *branchesStr != "" {
@@ -73,24 +99,50 @@ func main() {
 		gitRepos[repoDir] = name
 	}
 
+	opts.LanguageMap = make(ctags.LanguageMap)
+	for _, mapping := range strings.Split(*languageMap, ",") {
+		m := strings.Split(mapping, ":")
+		if len(m) != 2 {
+			continue
+		}
+		opts.LanguageMap[m[0]] = ctags.StringToParser(m[1])
+	}
+
+	if heapProfileTrigger := os.Getenv("ZOEKT_HEAP_PROFILE_TRIGGER"); heapProfileTrigger != "" {
+		trigger, err := humanize.ParseBytes(heapProfileTrigger)
+		if err != nil {
+			log.Printf("invalid value for ZOEKT_HEAP_PROFILE_TRIGGER: %v", err)
+		} else {
+			opts.HeapProfileTriggerBytes = trigger
+		}
+	}
+
+	profiler.Init("zoekt-git-index")
 	exitStatus := 0
 	for dir, name := range gitRepos {
 		opts.RepositoryDescription.Name = name
 		gitOpts := gitindex.Options{
-			BranchPrefix:       *branchPrefix,
-			Incremental:        *incremental,
-			Submodules:         *submodules,
-			RepoCacheDir:       *repoCacheDir,
-			AllowMissingBranch: *allowMissing,
-			BuildOptions:       *opts,
-			Branches:           branches,
-			RepoDir:            dir,
+			BranchPrefix:                      *branchPrefix,
+			Incremental:                       *incremental,
+			Submodules:                        *submodules,
+			RepoCacheDir:                      *repoCacheDir,
+			AllowMissingBranch:                *allowMissing,
+			BuildOptions:                      *opts,
+			Branches:                          branches,
+			RepoDir:                           dir,
+			DeltaShardNumberFallbackThreshold: *deltaShardNumberFallbackThreshold,
 		}
 
-		if err := gitindex.IndexGitRepo(gitOpts); err != nil {
-			log.Printf("indexGitRepo(%s): %v", dir, err)
+		if _, err := gitindex.IndexGitRepo(gitOpts); err != nil {
+			log.Printf("indexGitRepo(%s, delta=%t): %v", dir, gitOpts.BuildOptions.IsDelta, err)
 			exitStatus = 1
 		}
 	}
+
+	return exitStatus
+}
+
+func main() {
+	exitStatus := run()
 	os.Exit(exitStatus)
 }

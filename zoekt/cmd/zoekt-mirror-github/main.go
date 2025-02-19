@@ -12,17 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This binary fetches all repos of a user or organization and clones
-// them.  It is strongly recommended to get a personal API token from
-// https://github.com/settings/tokens, save the token in a file, and
-// point the --token option to it.
+// Command zoekt-mirror-github fetches all repos of a github user or organization
+// and clones them. It is strongly recommended to get a personal API token from
+// https://github.com/settings/tokens, save the token in a file, and point the
+// --token option to it.
 package main
 
 import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -33,7 +32,7 @@ import (
 	"github.com/google/go-github/v27/github"
 	"golang.org/x/oauth2"
 
-	"github.com/google/zoekt/gitindex"
+	"github.com/sourcegraph/zoekt/internal/gitindex"
 )
 
 type topicsFlag []string
@@ -50,6 +49,7 @@ func (f *topicsFlag) Set(value string) error {
 type reposFilters struct {
 	topics        []string
 	excludeTopics []string
+	noArchived    *bool
 }
 
 func main() {
@@ -68,6 +68,7 @@ func main() {
 	flag.Var(&topics, "topic", "only clone repos whose have one of given topics. You can add multiple topics by setting this more than once.")
 	excludeTopics := topicsFlag{}
 	flag.Var(&excludeTopics, "exclude_topic", "don't clone repos whose have one of given topics. You can add multiple topics by setting this more than once.")
+	noArchived := flag.Bool("no_archived", false, "mirror only projects that are not archived")
 
 	flag.Parse()
 
@@ -107,7 +108,7 @@ func main() {
 	}
 
 	if *token != "" {
-		content, err := ioutil.ReadFile(*token)
+		content, err := os.ReadFile(*token)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -130,6 +131,7 @@ func main() {
 	reposFilters := reposFilters{
 		topics:        topics,
 		excludeTopics: excludeTopics,
+		noArchived:    noArchived,
 	}
 	var repos []*github.Repository
 	var err error
@@ -223,8 +225,11 @@ func hasIntersection(s1, s2 []string) bool {
 	return false
 }
 
-func filterByTopic(repos []*github.Repository, include []string, exclude []string) (filteredRepos []*github.Repository) {
+func filterRepositories(repos []*github.Repository, include []string, exclude []string, noArchived bool) (filteredRepos []*github.Repository) {
 	for _, repo := range repos {
+		if noArchived && *repo.Archived {
+			continue
+		}
 		if (len(include) == 0 || hasIntersection(include, repo.Topics)) &&
 			!hasIntersection(exclude, repo.Topics) {
 			filteredRepos = append(filteredRepos, repo)
@@ -246,7 +251,7 @@ func getOrgRepos(client *github.Client, org string, reposFilters reposFilters) (
 		}
 
 		opt.Page = resp.NextPage
-		repos = filterByTopic(repos, reposFilters.topics, reposFilters.excludeTopics)
+		repos = filterRepositories(repos, reposFilters.topics, reposFilters.excludeTopics, *reposFilters.noArchived)
 		allRepos = append(allRepos, repos...)
 		if resp.NextPage == 0 {
 			break
@@ -268,7 +273,7 @@ func getUserRepos(client *github.Client, user string, reposFilters reposFilters)
 		}
 
 		opt.Page = resp.NextPage
-		repos = filterByTopic(repos, reposFilters.topics, reposFilters.excludeTopics)
+		repos = filterRepositories(repos, reposFilters.topics, reposFilters.excludeTopics, *reposFilters.noArchived)
 		allRepos = append(allRepos, repos...)
 		if resp.NextPage == 0 {
 			break
@@ -290,6 +295,7 @@ func cloneRepos(destDir string, repos []*github.Repository) error {
 		if err != nil {
 			return err
 		}
+
 		config := map[string]string{
 			"zoekt.web-url-type": "github",
 			"zoekt.web-url":      *r.HTMLURL,
@@ -299,6 +305,10 @@ func cloneRepos(destDir string, repos []*github.Repository) error {
 			"zoekt.github-watchers":    itoa(r.WatchersCount),
 			"zoekt.github-subscribers": itoa(r.SubscribersCount),
 			"zoekt.github-forks":       itoa(r.ForksCount),
+
+			"zoekt.archived": marshalBool(r.Archived != nil && *r.Archived),
+			"zoekt.fork":     marshalBool(r.Fork != nil && *r.Fork),
+			"zoekt.public":   marshalBool(r.Private == nil || !*r.Private),
 		}
 		dest, err := gitindex.CloneRepo(destDir, *r.FullName, *r.CloneURL, config)
 		if err != nil {
@@ -311,4 +321,11 @@ func cloneRepos(destDir string, repos []*github.Repository) error {
 	}
 
 	return nil
+}
+
+func marshalBool(b bool) string {
+	if b {
+		return "1"
+	}
+	return "0"
 }
