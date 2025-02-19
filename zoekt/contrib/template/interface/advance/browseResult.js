@@ -74,8 +74,14 @@ var zoektSpace = /\s/;
 var zoektStop = /[`~!@#$%\^&*()-+=|\\{}\[\]<>:;"',.\/?]/;
 function zoektFileRender(elem, text) {
    var div, lastSpan;
-   text.split('\n').forEach(function (line) {
+   var lines = text.split('\n');
+   var n = lines.length;
+   lines.forEach(function (line, i) {
+      var lno = document.createElement('span');
+      lno.className = 'src-lno';
+      lno.textContent = '' + (i+1);
       div = document.createElement('div');
+      div.appendChild(lno);
       div.appendChild(document.createTextNode(line));
       /* - tokenize source code
       // 0 = lastCh, 1 = lastSpace, 2 = lastStop
@@ -104,7 +110,6 @@ function zoektFileRender(elem, text) {
          }
       });
       */
-      if (!line.length) div.innerHTML = '&nbsp;';
       elem.appendChild(div);
    });
 }

@@ -62,6 +62,21 @@ a {
    margin-top: 5px;
    margin-bottom: 5px;
 }
+.result-item {
+   margin-top: 5px;
+   padding: 5px;
+   background-color: #def;
+}
+span.lno {
+   user-select: none;
+}
+span.src-lno {
+   user-select: none;
+   width: 3em;
+   text-align: right;
+   margin-right: 8px;
+   display: inline-block;
+}
 .code {
    padding: 1px;
    border: 1px solid red;
@@ -220,6 +235,10 @@ function zoektSearchResultRenderForRepositories(pre, obj) {
 
 function zoektSearchResultRenderForHits(pre, obj) {
    var div, a;
+   div = document.createElement('div');
+   div.textContent = obj.stat.doc_n + ' files in ' + obj.stat.duration;
+   pre.appendChild(div);
+
    obj.hits.forEach(function (item) {
       if (!item) return;
       div = document.createElement('div');
@@ -230,28 +249,31 @@ function zoektSearchResultRenderForHits(pre, obj) {
       a.setAttribute('data-path', '/' + item.filename);
       a.appendChild(document.createTextNode('/' + item.repository + '/' + item.filename));
       div.appendChild(a);
-      if (item.matches.length > 1) item.matches.sort(function (a, b) { return a.linenumber - b.linenumber; });
-      var N = 0; // max line number string length
-      if (item.matches.length) {
-         N = item.matches.map(
-            function (x) { return ('' + x.linenumber).length; }
-         ).reduce(
-            function (a, b) { return a>b?a:b }
-         );
-      }
-      item.matches.forEach(function (match) {
-         var line = document.createElement('div');
-         if (match.linenumber) {
-            var span = document.createElement('span');
-            span.innerHTML = paddingNumber(match.linenumber, N);
-            line.appendChild(span);
-            line.innerHTML += ' ' + match.text;
-         } else {
-            line.innerHTML = match.text;
+      if (item.matches) {
+         if (item.matches.length > 1) item.matches.sort(function (a, b) { return a.linenumber - b.linenumber; });
+         var N = 0; // max line number string length
+         if (item.matches.length) {
+            N = item.matches.map(
+               function (x) { return ('' + x.linenumber).length; }
+            ).reduce(
+               function (a, b) { return a>b?a:b }
+            );
          }
-         div.append(line);
-      });
-      div.style.marginTop = '5px';
+         item.matches.forEach(function (match) {
+            var line = document.createElement('div');
+            if (match.linenumber) {
+               var span = document.createElement('span');
+               span.className = 'lno';
+               span.innerHTML = paddingNumber(match.linenumber, N);
+               line.appendChild(span);
+               line.innerHTML += ' ' + match.text;
+            } else {
+               line.innerHTML = match.text;
+            }
+            div.append(line);
+         });
+      }
+      div.className = 'result-item';
       pre.appendChild(div);
    });
 
@@ -374,8 +396,14 @@ var zoektSpace = /\s/;
 var zoektStop = /[`~!@#$%\^&*()-+=|\\{}\[\]<>:;"',.\/?]/;
 function zoektFileRender(elem, text) {
    var div, lastSpan;
-   text.split('\n').forEach(function (line) {
+   var lines = text.split('\n');
+   var n = lines.length;
+   lines.forEach(function (line, i) {
+      var lno = document.createElement('span');
+      lno.className = 'src-lno';
+      lno.textContent = '' + (i+1);
       div = document.createElement('div');
+      div.appendChild(lno);
       div.appendChild(document.createTextNode(line));
       /* - tokenize source code
       // 0 = lastCh, 1 = lastSpace, 2 = lastStop
@@ -404,7 +432,6 @@ function zoektFileRender(elem, text) {
          }
       });
       */
-      if (!line.length) div.innerHTML = '&nbsp;';
       elem.appendChild(div);
    });
 }

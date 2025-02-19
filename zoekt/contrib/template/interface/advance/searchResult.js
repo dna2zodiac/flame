@@ -24,6 +24,10 @@ function zoektSearchResultRenderForRepositories(pre, obj) {
 
 function zoektSearchResultRenderForHits(pre, obj) {
    var div, a;
+   div = document.createElement('div');
+   div.textContent = obj.stat.doc_n + ' files in ' + obj.stat.duration;
+   pre.appendChild(div);
+
    obj.hits.forEach(function (item) {
       if (!item) return;
       div = document.createElement('div');
@@ -34,28 +38,31 @@ function zoektSearchResultRenderForHits(pre, obj) {
       a.setAttribute('data-path', '/' + item.filename);
       a.appendChild(document.createTextNode('/' + item.repository + '/' + item.filename));
       div.appendChild(a);
-      if (item.matches.length > 1) item.matches.sort(function (a, b) { return a.linenumber - b.linenumber; });
-      var N = 0; // max line number string length
-      if (item.matches.length) {
-         N = item.matches.map(
-            function (x) { return ('' + x.linenumber).length; }
-         ).reduce(
-            function (a, b) { return a>b?a:b }
-         );
-      }
-      item.matches.forEach(function (match) {
-         var line = document.createElement('div');
-         if (match.linenumber) {
-            var span = document.createElement('span');
-            span.innerHTML = paddingNumber(match.linenumber, N);
-            line.appendChild(span);
-            line.innerHTML += ' ' + match.text;
-         } else {
-            line.innerHTML = match.text;
+      if (item.matches) {
+         if (item.matches.length > 1) item.matches.sort(function (a, b) { return a.linenumber - b.linenumber; });
+         var N = 0; // max line number string length
+         if (item.matches.length) {
+            N = item.matches.map(
+               function (x) { return ('' + x.linenumber).length; }
+            ).reduce(
+               function (a, b) { return a>b?a:b }
+            );
          }
-         div.append(line);
-      });
-      div.style.marginTop = '5px';
+         item.matches.forEach(function (match) {
+            var line = document.createElement('div');
+            if (match.linenumber) {
+               var span = document.createElement('span');
+               span.className = 'lno';
+               span.innerHTML = paddingNumber(match.linenumber, N);
+               line.appendChild(span);
+               line.innerHTML += ' ' + match.text;
+            } else {
+               line.innerHTML = match.text;
+            }
+            div.append(line);
+         });
+      }
+      div.className = 'result-item';
       pre.appendChild(div);
    });
 

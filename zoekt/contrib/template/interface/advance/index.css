@@ -56,6 +56,21 @@ a {
    margin-top: 5px;
    margin-bottom: 5px;
 }
+.result-item {
+   margin-top: 5px;
+   padding: 5px;
+   background-color: #def;
+}
+span.lno {
+   user-select: none;
+}
+span.src-lno {
+   user-select: none;
+   width: 3em;
+   text-align: right;
+   margin-right: 8px;
+   display: inline-block;
+}
 .code {
    padding: 1px;
    border: 1px solid red;
