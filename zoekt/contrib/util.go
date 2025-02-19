@@ -16,10 +16,11 @@ import (
 	"path/filepath"
 	"io/ioutil"
 
-	"github.com/google/zoekt"
-	"github.com/google/zoekt/query"
-	"github.com/google/zoekt/shards"
-	"github.com/google/zoekt/build"
+	"github.com/sourcegraph/zoekt"
+	"github.com/sourcegraph/zoekt/index"
+	"github.com/sourcegraph/zoekt/query"
+	"github.com/sourcegraph/zoekt/internal/shards"
+	zjson "github.com/sourcegraph/zoekt/internal/json"
 	"go.uber.org/automaxprocs/maxprocs"
 )
 
@@ -259,27 +260,19 @@ func Search(indexPath string, ctx context.Context, q string, num int) (*zoekt.Se
 		MaxWallTime: 10 * time.Second,
 	}
 	sOpts.SetDefaults()
+	sOpts.NumContextLines = 0
+	sOpts.MaxDocDisplayCount = num
+	sOpts.DebugScore = DEBUG_ON
 	// limit doc number in case there are too many
 	// ref: web/server.go
-	if plan, err := searcher.Search(ctx, Q, &zoekt.SearchOptions{EstimateDocCount: true}); err != nil {
-		return nil, err
-	} else if numdocs := plan.ShardFilesConsidered; numdocs > 10000 {
-		// 10k docs, top 50 -> max match/important = 275/4
-		sOpts.ShardMaxMatchCount = num*5 + (5*num)/(numdocs/1000)
-		sOpts.ShardMaxImportantMatch = num/20 + num/(numdocs/500)
-	} else {
-		n := numdocs + num*100
-		sOpts.ShardMaxImportantMatch = n
-		sOpts.ShardMaxMatchCount = n
-		sOpts.TotalMaxMatchCount = n
-	}
-	sOpts.MaxDocDisplayCount = num
-	// ref: api.go
 	// sres.Files -> f.LineMatches
 	// f.Language, f.Branches, string(f.Checksum), f.Filename, f.Repository
 	// f.Version
 	// m.LineNumber, m.Line, m.LineFragments -> x
 	// x.LineOffset, x.MatchLength
+	if err := zjson.CalculateDefaultSearchLimits(ctx, Q, searcher, &sOpts); err != nil {
+		return nil, err
+	}
 	sres, err :=  searcher.Search(ctx, Q, &sOpts)
 	if err != nil {
 		return nil, err
@@ -319,65 +312,69 @@ func (a *fileAggregator) add(path string, info os.FileInfo, err error) error {
 }
 
 func Index(indexPath, sourcePath string, ignoreDirs []string) error {
-	maxprocs.Set()
-	opts := build.Options{}
-	ignoreDirMap := map[string]struct{}{}
-	for _, d := range ignoreDirs {
-		d = strings.TrimSpace(d)
-		if d != "" {
-			ignoreDirMap[d] = struct{}{}
+	_, _ = maxprocs.Set()
+
+	opts := index.Options{}
+	opts.SetDefaults()
+	opts.IndexDir = indexPath
+
+	ignore := map[string]struct{}{}
+	if len(ignoreDirs) > 0 {
+		for _, d := range ignoreDirs {
+			d = strings.TrimSpace(d)
+			if d != "" {
+				ignore[d] = struct{}{}
+			}
 		}
 	}
-	opts.SetDefaults()
-	sourcePath, err := filepath.Abs(filepath.Clean(sourcePath))
+
+	dir, err := filepath.Abs(filepath.Clean(sourcePath))
 	if err != nil {
 		return err
 	}
-	is, err := IsEmptyFolder(sourcePath)
+
+	opts.RepositoryDescription.Name = filepath.Base(dir)
+	builder, err := index.NewBuilder(opts)
 	if err != nil {
 		return err
 	}
-	if is {
-		return fmt.Errorf("no file for indexing")
-	}
-	opts.IndexDir = indexPath
-	opts.RepositoryDescription.Source = sourcePath
-	opts.RepositoryDescription.Name = filepath.Base(sourcePath)
-	builder, err := build.NewBuilder(opts)
-	if err != nil {
-		return err
-	}
-	defer builder.Finish()
+	// we don't need to check error, since we either already have an error, or
+	// we returning the first call to builder.Finish.
+	defer builder.Finish() // nolint:errcheck
+
 	comm := make(chan fileInfo, 100)
 	agg := fileAggregator{
-		ignoreDirs: ignoreDirMap,
+		ignoreDirs: ignore,
 		sink:       comm,
 		sizeMax:    int64(opts.SizeMax),
 	}
 
 	go func() {
-		if err := filepath.Walk(sourcePath, agg.add); err != nil {
+		if err := filepath.Walk(dir, agg.add); err != nil {
 			log.Fatal(err)
 		}
 		close(comm)
 	}()
 
-	pathPrefix := sourcePath + string(filepath.Separator)
 	for f := range comm {
-		displayName := strings.TrimPrefix(f.name, pathPrefix)
+		displayName := strings.TrimPrefix(f.name, dir+"/")
 		if f.size > int64(opts.SizeMax) && !opts.IgnoreSizeMax(displayName) {
-			builder.Add(zoekt.Document{
+			if err := builder.Add(index.Document{
 				Name:       displayName,
 				SkipReason: fmt.Sprintf("document size %d larger than limit %d", f.size, opts.SizeMax),
-			})
+			}); err != nil {
+				return err
+			}
 			continue
 		}
-		content, err := ioutil.ReadFile(f.name)
+		content, err := os.ReadFile(f.name)
 		if err != nil {
 			return err
 		}
 
-		builder.AddFile(displayName, content)
+		if err := builder.AddFile(displayName, content); err != nil {
+			return err
+		}
 	}
 
 	return builder.Finish()
