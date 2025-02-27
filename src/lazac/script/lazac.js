@@ -1,4 +1,12 @@
 const iFile = require('fs');
+const {BasicTextParser} = require('../common');
+
+class TextParser {
+   Tokenize(text) {
+      const p = new BasicTextParser();
+      return p.Parse(text).map(z => ({ T: z }));
+   }
+}
 
 const parser = [
    'cpp', 'csharp', 'css',
@@ -10,6 +18,7 @@ const parser = [
    a[x] = m.Parser;
    return a;
 }, {});
+parser['text'] = TextParser;
 
 function guessLang(path) {
    const ps = path.split('.');
@@ -29,7 +38,7 @@ function guessLang(path) {
    case 'rb': return 'ruby';
    case 'pl': return 'perl';
    }
-   return null;
+   return 'text';
 }
 
 function parseLang(lang, code, res) {
