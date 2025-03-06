@@ -61,6 +61,14 @@ function zoektSearchResultRenderForHits(pre, obj) {
             }
             div.append(line);
          });
+      } else if (item.duplicated) {
+         var line = document.createElement('div');
+         var span = document.createElement('span');
+         span.className = 'lno';
+         span.innerHTML = 'Dup';
+         line.appendChild(span);
+         line.appendChild(document.createTextNode(' ' + item.duplicate_id));
+         div.append(line);
       }
       div.className = 'result-item';
       pre.appendChild(div);
