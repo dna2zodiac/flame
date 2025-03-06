@@ -42,6 +42,8 @@ export function initEditor(dom) {
    }, {
       textModelService: new FlameTextModelService()
    });
+   const is_dark_mode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+   if (is_dark_mode) monaco.editor.setTheme('vs-dark');
 
    const resize_ob = new ResizeObserver(() => {
       editor_api.layout();
