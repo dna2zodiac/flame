@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import SearchItem from './SearchItem.vue';
 import eventbus from '../services/eventbus';
 
@@ -27,6 +27,12 @@ onMounted(() => {
    });
 });
 
+const viewN = computed(() => {
+   const n0 = results.value?.Stats?.FileCount || 0;
+   const n = results.value?.Last?.Num || 0;
+   return n > n0 ? n0 : n;
+});
+
 function switchSearchDetails() {
    opened.value = !opened.value;
 }
@@ -51,7 +57,7 @@ function removeSelf() {
       <div v-if="loading">Searching ...</div>
       <div v-if="!loading && !!results">
          <div>
-            Found {{ results.Last.Num }} out of {{ results?.Stats?.FileCount }} file(s) in {{ results?.Stats?.Duration / 1000000 }} ms
+            Found {{ viewN }} out of {{ results?.Stats?.FileCount }} file(s) in {{ results?.Stats?.Duration / 1000000 }} ms
          </div>
          <SearchItem v-for="item in results.FileMatches" :key="item.FileName" :data="item" />
       </div>
