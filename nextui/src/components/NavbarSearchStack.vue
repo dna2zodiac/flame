@@ -15,6 +15,9 @@ const results = ref(null);
 onMounted(() => {
    props.data.req.then((r) => {
       results.value = r?.result;
+      if (results.value?.FileMatches?.length) {
+         results.value.FileMatches.forEach(z => z.Matches && z.Matches.sort((a, b) => a.LineNum - b.LineNum));
+      }
       loading.value = false;
       setTimeout(() => {
          const s = container.value;

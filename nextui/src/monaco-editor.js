@@ -54,4 +54,5 @@ export function initEditor(dom) {
    local.editor = editor_api;
    local.monaco = monaco;
    window._debugEditor = editor_api;
+   window._debugMonaco = monaco;
 }

@@ -92,6 +92,7 @@ export default {
 }
 .editor-container {
    flex: 1 0 auto;
+   width: 0;
 }
 .editor {
    width: 100%;
