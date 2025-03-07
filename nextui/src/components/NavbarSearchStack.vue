@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import SearchItem from './SearchItem.vue';
 import eventbus from '../services/eventbus';
 
@@ -12,6 +12,15 @@ const opened = ref(true);
 const loading = ref(true);
 const results = ref(null);
 
+function revealStack() {
+   opened.value = true;
+   nextTick(() => {
+      const s = container.value;
+      const p = container.value.parentNode;
+      s && p && s.parentNode.scrollTo(0, s.offsetTop - p.offsetTop);
+   });
+}
+
 onMounted(() => {
    props.data.req.then((r) => {
       results.value = r?.result;
@@ -19,12 +28,17 @@ onMounted(() => {
          results.value.FileMatches.forEach(z => z.Matches && z.Matches.sort((a, b) => a.LineNum - b.LineNum));
       }
       loading.value = false;
-      setTimeout(() => {
-         const s = container.value;
-         const p = container.value.parentNode;
-         s && p && s.parentNode.scrollTo(0, s.offsetTop - p.offsetTop);
-      });
+      props.data.api = {
+         revealStack,
+      };
+      revealStack();
    });
+});
+onUnmounted(() => {
+   if (props.data.api) {
+      delete props.data.api.revealStack;
+      delete props.data.api;
+   }
 });
 
 const viewN = computed(() => {
@@ -69,6 +83,12 @@ function removeSelf() {
    display: flex;
    flex-direction: row;
    width: 100%;
+   position: sticky;
+   top: 0;
+   background-color: ButtonFace;
+   z-index: 10;
+   padding: 2px;
+
 }
 .title {
    flex: 1 0 auto;

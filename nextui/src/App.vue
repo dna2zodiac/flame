@@ -1,14 +1,41 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { initEditor } from './monaco-editor'
 import NavbarSearch from './components/NavbarSearch.vue';
 import Loading from './components/Loading.vue';
+import eventbus from './services/eventbus';
 
 const monacoEditor = ref(null);
+const tab = ref(0);
 
 onMounted(() => {
    initEditor(monacoEditor.value);
+   eventbus.on('app.opentab', onOpenTab);
 });
+onUnmounted(() => {
+  eventbus.off('app.opentab', onOpenTab);
+});
+
+const tabMap = {
+   none: 0,
+   search: 1,
+   stack: 2,
+   grid: 3,
+   log: 4,
+};
+function onOpenTab(tabname) {
+  const todotab = tabMap[tabname] || 0;
+  if (tab.value === todotab) return;
+  switchTab(todotab);
+}
+
+function switchTab(index) {
+  if (tab.value == index) {
+    tab.value = 0;
+  } else {
+    tab.value = index;
+  }
+}
 </script>
 
 <template>
@@ -36,25 +63,6 @@ onMounted(() => {
   </div>
   <Loading />
 </template>
-
-<script>
-export default {
-  data() {
-    return {
-      tab: 0,
-    };
-  },
-  methods: {
-    switchTab(index) {
-      if (this.tab == index) {
-        this.tab = 0;
-      } else {
-        this.tab = index;
-      }
-    }
-  },
-}
-</script>
 
 <style scoped>
 .view {

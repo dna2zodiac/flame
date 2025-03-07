@@ -66,6 +66,7 @@ function addFlameSearchContextMenu() {
          const selection = evt.getSelection();
          const model = evt.getModel();
          const selectedText = model.getValueInRange(selection);
+         eventbus.emit('app.opentab', 'search');
          eventbus.emit('navbar.search.input.push', convertToZoektRegex(selectedText));
       return null;
       }
@@ -81,6 +82,7 @@ function addFlameSearchContextMenu() {
          const selection = evt.getSelection();
          const model = evt.getModel();
          const selectedText = model.getValueInRange(selection);
+         eventbus.emit('app.opentab', 'search');
          eventbus.emit('navbar.search.input.push', `f:${convertToZoektRegex(selectedText)}`);
       return null;
       }

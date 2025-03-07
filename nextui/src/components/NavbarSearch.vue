@@ -11,6 +11,11 @@ const clickSearch = () => {
    const q = query.value;
    if (!q) return;
    const id = stacks.value.length ? (stacks.value[0].id + 1) : 1;
+   const dup = stacks.value.find(z => z.query === q);
+   if (dup) {
+      dup.api && dup.api.revealStack();
+      return;
+   }
    stacks.value.unshift({
       id: id,
       query: q,
@@ -28,9 +33,9 @@ onUnmounted(() => {
    eventbus.off('navbar.search.input.push', onGetQuery);
 });
 
-function onGetQuery(evt) {
-   if (!evt) return;
-   query.value = evt;
+function onGetQuery(q) {
+   if (!q) return;
+   query.value = q;
    input.value.focus();
 }
 function onSearchStackRemoving(evt) {
