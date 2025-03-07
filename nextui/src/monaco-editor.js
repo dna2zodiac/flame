@@ -1,4 +1,5 @@
 import * as monaco from 'monaco-editor';
+import { local } from './services/db';
 
 function FlameTextModelService() {}
 FlameTextModelService.prototype = {
@@ -50,5 +51,7 @@ export function initEditor(dom) {
    });
    resize_ob.observe(dom);
 
+   local.editor = editor_api;
+   local.monaco = monaco;
    window._debugEditor = editor_api;
 }
