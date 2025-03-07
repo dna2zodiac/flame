@@ -9,7 +9,14 @@ export default defineConfig({
     // XXX: should patch vite-plugin-moanco-editor, in getWorks()
     //      filter out null/undefined item, especially tail element
     monacoEditorPlugin.default({
-      languageWorkers: ['editorWorkerService', 'typescript', 'javascript'],
+      languageWorkers: [
+        'editorWorkerService', 'bat', 'cpp', 'csharp',
+        'css', 'dart', 'dockerfile', 'go', 'html', 'ini',
+        'java', 'javascript', 'kotlin', 'less', 'lua',
+        'markdown', 'objective-c', 'perl', 'php', 'protobuf',
+        'python', 'r', 'ruby', 'rust', 'scala', 'shell',
+        'sql', 'swift', 'tcl', 'typescript', 'xml', 'yaml',
+      ],
     }),
   ],
   server: {
