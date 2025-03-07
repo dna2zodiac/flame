@@ -1,5 +1,6 @@
 import * as monaco from 'monaco-editor';
 import { local } from './services/db';
+import eventbus from './services/eventbus';
 
 function FlameTextModelService() {}
 FlameTextModelService.prototype = {
@@ -37,6 +38,55 @@ FlameTextModelService.prototype = {
    }
 };
 
+const escapeCharsRegex = /["\\.+*^$()\[\] ]/g;
+function convertToZoektRegex(text) {
+   return text.replace(escapeCharsRegex, '\\$&');
+}
+
+function addFlameSearchContextMenu() {
+   // Register a context menu item for printing selected text
+   const selectionContainsMultipleLinesKey = local.editor.createContextKey('selectionContainsMultipleLines', false);
+   local.editor.onContextMenu((evt) => {
+      const selection = local.editor.getSelection();
+      const isMultiLine = (
+         selection &&
+         !selection.isEmpty() &&
+         selection.startLineNumber !== selection.endLineNumber
+      );
+      selectionContainsMultipleLinesKey.set(isMultiLine);
+   });
+   local.editor.addAction({
+      id: 'flame.search.text',
+      label: 'Search as text',
+      contextMenuGroupId: 'modification',
+      contextMenuOrder: 1.5,
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyS],
+      precondition: 'editorHasSelection && !editorHasMultipleSelections && !selectionContainsMultipleLines',
+      run: function(evt) {
+         const selection = evt.getSelection();
+         const model = evt.getModel();
+         const selectedText = model.getValueInRange(selection);
+         eventbus.emit('navbar.search.input.push', convertToZoektRegex(selectedText));
+      return null;
+      }
+   });
+   local.editor.addAction({
+      id: 'flame.search.file',
+      label: 'Search as file',
+      contextMenuGroupId: 'modification',
+      contextMenuOrder: 1.5,
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF],
+      precondition: 'editorHasSelection && !editorHasMultipleSelections && !selectionContainsMultipleLines',
+      run: function(evt) {
+         const selection = evt.getSelection();
+         const model = evt.getModel();
+         const selectedText = model.getValueInRange(selection);
+         eventbus.emit('navbar.search.input.push', `f:${convertToZoektRegex(selectedText)}`);
+      return null;
+      }
+   });
+}
+
 export function initEditor(dom) {
    const editor_api = monaco.editor.create(dom, {
       readOnly: true,
@@ -55,4 +105,5 @@ export function initEditor(dom) {
    local.monaco = monaco;
    window._debugEditor = editor_api;
    window._debugMonaco = monaco;
+   addFlameSearchContextMenu();
 }
