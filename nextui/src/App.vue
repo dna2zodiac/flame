@@ -1,6 +1,8 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { initEditor } from './monaco-editor'
+import NavbarSearch from './components/NavbarSearch.vue';
+import Loading from './components/Loading.vue';
 
 const monacoEditor = ref(null);
 
@@ -20,7 +22,7 @@ onMounted(() => {
     <div class="workspace">
       <div class="main-view">
         <div :class="{'tab-container': true, hide: tab == 0}">
-          <div :class="{hide: tab != 1}">Search</div>
+          <div :class="{hide: tab != 1}"><NavbarSearch /></div>
           <div :class="{hide: tab != 2}">ViewStack</div>
           <div :class="{hide: tab != 3}">CallGrid</div>
           <div :class="{hide: tab != 4}">LogMap</div>
@@ -32,6 +34,7 @@ onMounted(() => {
       <div>Status</div>
     </div>
   </div>
+  <Loading />
 </template>
 
 <script>
@@ -82,6 +85,10 @@ export default {
   width: 40%;
   padding: 10px;
   flex: 0 0 auto;
+}
+.tab-container > div {
+  height: 100%;
+  width: 100%;
 }
 .editor-container {
    flex: 1 0 auto;
