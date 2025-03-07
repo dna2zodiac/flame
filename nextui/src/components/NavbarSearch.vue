@@ -10,7 +10,7 @@ const stacks = ref([]);
 const clickSearch = () => {
    const q = query.value;
    if (!q) return;
-   const id = stacks.value.length ? (stacks.value[stacks.value.length-1].id + 1) : 1;
+   const id = stacks.value.length ? (stacks.value[0].id + 1) : 1;
    stacks.value.unshift({
       id: id,
       query: q,
