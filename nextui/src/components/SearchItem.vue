@@ -4,6 +4,7 @@ import FileIcon from 'file-icons-vue';
 import { local } from '../services/db';
 import { DataClient } from '../services/databox';
 import eventbus from '../services/eventbus';
+import { apiAddBreakpoint } from '../monaco-editor';
 
 const props = defineProps({
   data: Object,
@@ -34,12 +35,21 @@ function loadFileInEditor(url, lno) {
       const m0 = local.editor.getModel();
       if (!m0 || m0.uri.toString() !== uri) {
          m0.dispose();
-         const m = local.monaco.editor.createModel(
+         const uriObj = local.monaco.Uri.parse(uri);
+         const m = local.monaco.editor.getModel(uriObj) || local.monaco.editor.createModel(
             div.textContent,
             guessFileLanguage(uri),
-            local.monaco.Uri.parse(uri)
+            uriObj
          );
          local.editor.setModel(m);
+         // show breakpoints if any
+         const btObj = local.breakpoints?.byFile?.[uri];
+         if (btObj) {
+            Object.keys(btObj).forEach(k => {
+               const lineNumber = parseInt(k);
+               apiAddBreakpoint(lineNumber);
+            });
+         }
       }
       if (lno) {
          local.editor.focus();

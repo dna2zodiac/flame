@@ -43,7 +43,7 @@ function convertToZoektRegex(text) {
    return text.replace(escapeCharsRegex, '\\$&');
 }
 
-function addFlameSearchContextMenu() {
+function enableFlameSearchContextMenu() {
    // Register a context menu item for printing selected text
    const selectionContainsMultipleLinesKey = local.editor.createContextKey('selectionContainsMultipleLines', false);
    local.editor.onContextMenu((evt) => {
@@ -89,6 +89,64 @@ function addFlameSearchContextMenu() {
    });
 }
 
+export function apiAddBreakpoint(lineNumber) {
+   _toogleBreakpoint(local.editor, lineNumber, true, false);
+}
+export function delAddBreakpoint(lineNumber) {
+   _toogleBreakpoint(local.editor, lineNumber, false, true);
+}
+function _toogleBreakpoint(editor, lineNumber, addonly, delonly) {
+   // Get current model
+   const model = editor.getModel();
+   const uri = model.uri.toString();
+   if (!local.breakpoints) local.breakpoints = {
+      autoId: 1,
+      byFile: {},
+   };
+   const btmap = local.breakpoints.byFile;
+   if (!btmap[uri]) btmap[uri] = {};
+
+   // Check if decoration already exists
+   const existingDecorations = editor.getLineDecorations(lineNumber)
+      .filter(d => d.options.glyphMarginClassName === 'breakpoint-glyph');
+
+   if (existingDecorations.length > 0) {
+      // Remove the decoration if it exists
+      if (!addonly) {
+         editor.deltaDecorations(existingDecorations.map(d => d.id), []);
+         delete btmap[uri][lineNumber];
+         if (!Object.keys(btmap[uri]).length) {
+            delete btmap[uri];
+            if (!Object.keys(btmap).length) {
+               local.breakpoints.autoId = 1;
+            }
+         }
+      }
+   } else {
+      // Add the decoration if it doesn't exist
+      if (!delonly) {
+         editor.deltaDecorations([], [{
+            range: new monaco.Range(lineNumber, 1, lineNumber, 1),
+            options: {
+               isWholeLine: true,
+               glyphMarginClassName: 'breakpoint-glyph'
+            }
+         }]);
+         btmap[uri][lineNumber] = local.breakpoints.autoId++;
+      }
+   }
+}
+function enableToogleBreakpoint() {
+   local.editor.onMouseDown(evt => {
+      if (
+         evt.target.type !== local.monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN &&
+         evt.target.type !== local.monaco.editor.MouseTargetType.GUTTER_LINE_NUMBERS
+      ) return;
+      _toogleBreakpoint(local.editor, evt.target.position.lineNumber);
+   });
+   local.editor.updateOptions({ glyphMargin: true });
+}
+
 export function initEditor(dom) {
    const editor_api = monaco.editor.create(dom, {
       readOnly: true,
@@ -107,5 +165,6 @@ export function initEditor(dom) {
    local.monaco = monaco;
    window._debugEditor = editor_api;
    window._debugMonaco = monaco;
-   addFlameSearchContextMenu();
+   enableFlameSearchContextMenu();
+   enableToogleBreakpoint();
 }
