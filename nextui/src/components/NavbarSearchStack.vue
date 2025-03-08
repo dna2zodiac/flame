@@ -16,8 +16,9 @@ function revealStack() {
    opened.value = true;
    nextTick(() => {
       const s = container.value;
+      const q = container.value.nextSibling;
       const p = container.value.parentNode;
-      s && p && s.parentNode.scrollTo(0, s.offsetTop - p.offsetTop);
+      s && p && s.parentNode.scrollTo(0, q.offsetTop - s.offsetHeight - p.offsetTop);
    });
 }
 
@@ -31,8 +32,8 @@ onMounted(() => {
       props.data.api = {
          revealStack,
       };
-      revealStack();
    });
+   revealStack();
 });
 onUnmounted(() => {
    if (props.data.api) {
