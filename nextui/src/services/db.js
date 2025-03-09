@@ -166,3 +166,5 @@ export function clr() {
       }]);
    });
 }
+
+window._debugLocal = local;

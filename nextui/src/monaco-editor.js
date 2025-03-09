@@ -1,6 +1,7 @@
 import * as monaco from 'monaco-editor';
 import { local } from './services/db';
 import eventbus from './services/eventbus';
+import { DataClient } from './services/databox';
 
 function FlameTextModelService() {}
 FlameTextModelService.prototype = {
@@ -121,6 +122,7 @@ function _toogleBreakpoint(editor, lineNumber, addonly, delonly) {
                local.breakpoints.autoId = 1;
             }
          }
+         return -1;
       }
    } else {
       // Add the decoration if it doesn't exist
@@ -132,9 +134,17 @@ function _toogleBreakpoint(editor, lineNumber, addonly, delonly) {
                glyphMarginClassName: 'breakpoint-glyph'
             }
          }]);
-         btmap[uri][lineNumber] = local.breakpoints.autoId++;
+         let text = model.getLineContent(lineNumber).trim();
+         if (text.length > 100) text = `${text.substring(0, 100)} ...`;
+         btmap[uri][lineNumber] = {
+            id: local.breakpoints.autoId++,
+            lno: lineNumber,
+            text,
+         }
+         return 1;
       }
    }
+   return 0;
 }
 function enableToogleBreakpoint() {
    local.editor.onMouseDown(evt => {
@@ -143,8 +153,89 @@ function enableToogleBreakpoint() {
          evt.target.type !== local.monaco.editor.MouseTargetType.GUTTER_LINE_NUMBERS
       ) return;
       _toogleBreakpoint(local.editor, evt.target.position.lineNumber);
+      eventbus.emit('stackview.update');
    });
    local.editor.updateOptions({ glyphMargin: true });
+}
+
+export function apiParseUri(uri) {
+   const metaObj = {};
+   const uriObj = URL.parse(uri);
+   if (uriObj.pathname === '/') {
+      metaObj.type = 'root';
+      metaObj.repo = '';
+      metaObj.path = [];
+   } else {
+      const ps = uriObj.pathname.split('/');
+      ps.shift();
+      metaObj.repo = ps.shift();
+      metaObj.path = ps;
+      metaObj.type = uriObj.hostname;
+   }
+   return metaObj;
+}
+
+export function apiGuessFileLanguage(filename) {
+   const languages = local.monaco.languages.getLanguages();
+   const basename = filename.split('/').pop();
+   const ps = filename.split('.');
+   if (ps.length === 1) return null;
+   const ext = `.${ps.pop()}`;
+   for (const lang of languages) {
+       if (lang.extensions && lang.extensions.includes(ext)) {
+           return lang.id;
+       }
+       if (lang.filenames && lang.filenames.includes(basename)) {
+           return lang.id;
+       }
+   }
+   return null; // No matching language found
+}
+
+export async function apiLoadFile(uri, opt) {
+   opt = opt || {};
+   eventbus.emit('loading');
+   const m0 = local.editor.getModel();
+   if (!m0 || m0.uri.toString() !== uri) {
+      m0.dispose();
+      const metaObj = apiParseUri(uri);
+      const url = `print?r=${
+         encodeURIComponent(metaObj.repo)
+      }&f=${
+         encodeURIComponent(metaObj.path.join('/'))
+      }`;
+      const uriObj = local.monaco.Uri.parse(uri);
+      let m = local.monaco.editor.getModel(uriObj);
+      if (!m) {
+         // TODO: try ... catch ... to handle errors
+         const r = await DataClient.Project.GetFileContentsRaw(url);
+         const div = document.createElement('div');
+         div.innerHTML = r.contents;
+         m = local.monaco.editor.createModel(
+            div.textContent,
+            apiGuessFileLanguage(uri),
+            uriObj
+         );
+      }
+      local.editor.setModel(m);
+      eventbus.emit('editor.breadcrumb.update', uri);
+   }
+   // show breakpoints if any
+   const btObj = local.breakpoints?.byFile?.[uri];
+   if (btObj) {
+      Object.keys(btObj).forEach(k => {
+         const lineNumber = parseInt(k);
+         apiAddBreakpoint(lineNumber);
+      });
+   }
+
+   const lno = opt.lineNumber;
+   if (lno) {
+      local.editor.focus();
+      local.editor.revealPosition({ lineNumber: lno, column: 1 });
+      local.editor.setSelection({ startLineNumber: lno, endLineNumber: lno, startColumn: 1, endColumn: 1 });
+   }
+   eventbus.emit('loaded');
 }
 
 export function initEditor(dom) {

@@ -1,6 +1,7 @@
 <script setup>
 import {ref, onMounted, onUnmounted} from 'vue';
 import eventbus from '../services/eventbus';
+import { apiParseUri } from '../monaco-editor';
 const data = ref(null);
 
 onMounted(() => {
@@ -11,20 +12,8 @@ onUnmounted(() => {
 });
 function onUpdateEditorBreadcrumb(uri) {
    // uri = flame://file|dir/<repo>/<path/to/target>
-   const metaObj = {};
-   const uriObj = URL.parse(uri);
-   if (uriObj.pathname === '/') {
-      metaObj.type = 'root';
-      metaObj.repo = '';
-      metaObj.path = [];
-   } else {
-      const ps = uriObj.pathname.split('/');
-      ps.shift();
-      metaObj.repo = ps.shift();
-      metaObj.path = ps;
-      metaObj.type = uriObj.hostname;
-   }
-   data.value = metaObj;
+   if (!uri) return;
+   data.value = apiParseUri(uri);
 }
 </script>
 
