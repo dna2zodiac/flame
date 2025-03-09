@@ -26,41 +26,45 @@ function guessFileLanguage(filename) {
     }
     return null; // No matching language found
 }
-function loadFileInEditor(url, lno) {
+async function loadFileInEditor(url, lno) {
    eventbus.emit('loading');
-   DataClient.Project.GetFileContentsRaw(url).then((r) => {
-      const uri = `flame://${props.data.Repo}/${props.data.FileName}`;
-      const div = document.createElement('div');
-      div.innerHTML = r.contents;
-      const m0 = local.editor.getModel();
-      if (!m0 || m0.uri.toString() !== uri) {
-         m0.dispose();
-         const uriObj = local.monaco.Uri.parse(uri);
-         const m = local.monaco.editor.getModel(uriObj) || local.monaco.editor.createModel(
+   const uri = `flame://file/${props.data.Repo}/${props.data.FileName}`;
+   const m0 = local.editor.getModel();
+   if (!m0 || m0.uri.toString() !== uri) {
+      m0.dispose();
+      const uriObj = local.monaco.Uri.parse(uri);
+      let m = local.monaco.editor.getModel(uriObj);
+      if (!m) {
+         // TODO: try ... catch ... to handle errors
+         const r = await DataClient.Project.GetFileContentsRaw(url);
+         const div = document.createElement('div');
+         div.innerHTML = r.contents;
+         m = local.monaco.editor.createModel(
             div.textContent,
             guessFileLanguage(uri),
             uriObj
          );
-         local.editor.setModel(m);
-         // show breakpoints if any
-         const btObj = local.breakpoints?.byFile?.[uri];
-         if (btObj) {
-            Object.keys(btObj).forEach(k => {
-               const lineNumber = parseInt(k);
-               apiAddBreakpoint(lineNumber);
-            });
-         }
       }
+      local.editor.setModel(m);
+
+      // show breakpoints if any
+      const btObj = local.breakpoints?.byFile?.[uri];
+      if (btObj) {
+         Object.keys(btObj).forEach(k => {
+            const lineNumber = parseInt(k);
+            apiAddBreakpoint(lineNumber);
+         });
+      }
+
       if (lno) {
          local.editor.focus();
          local.editor.revealPosition({ lineNumber: lno, column: 1 });
          local.editor.setSelection({ startLineNumber: lno, endLineNumber: lno, startColumn: 1, endColumn: 1 });
       }
-      eventbus.emit('loaded');
-   }, () => {
-      // TODO: show error
-      eventbus.emit('loaded');
-   });
+
+      eventbus.emit('editor.breadcrumb.update', uri);
+   }
+   eventbus.emit('loaded');
 }
 </script>
 

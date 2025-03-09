@@ -4,6 +4,7 @@ import { initEditor } from './monaco-editor'
 import NavbarSearch from './components/NavbarSearch.vue';
 import Loading from './components/Loading.vue';
 import eventbus from './services/eventbus';
+import EditorBreadcrumb from './components/EditorBreadcrumb.vue';
 
 const monacoEditor = ref(null);
 const tab = ref(0);
@@ -55,7 +56,8 @@ function switchTab(index) {
           <div :class="{hide: tab != 4}">LogMap</div>
         </div>
         <div class="editor-container">
-          <div ref="monacoEditor" class="editor"></div>
+          <EditorBreadcrumb />
+          <div class="editor-ref-container"><div ref="monacoEditor" class="editor"></div></div>
         </div>
       </div>
       <div>Status</div>
@@ -101,6 +103,12 @@ function switchTab(index) {
 .editor-container {
    flex: 1 0 auto;
    width: 0;
+   display: flex;
+   flex-direction: column;
+}
+.editor-ref-container {
+  flex: 1 0 auto;
+  height: 0;
 }
 .editor {
    width: 100%;
