@@ -1,9 +1,11 @@
 <script setup>
 import {ref, onMounted, onUnmounted} from 'vue';
+import FileIcon from 'file-icons-vue';
 import eventbus from '../services/eventbus';
 import { local } from '../services/db';
 import { apiLoadFile, apiParseUri } from '../monaco-editor';
 
+const container = ref(null);
 const groups = ref([]);
 
 onMounted(() => {
@@ -47,6 +49,7 @@ function onStackViewUpdate() {
       delete z.uri;
    });
    groups.value = newgroups;
+   container.value.scrollTo(0, 0);
 }
 
 async function loadFileInEditor(uri, lno) {
@@ -57,10 +60,11 @@ async function loadFileInEditor(uri, lno) {
 <template>
    <div class="stackview-container">
       StackView
-      <div class="stackview-list-container">
-         <div v-for="z in groups" :key="z.key">
-            <a class="stackview-item" @click="loadFileInEditor(z.uri)">{{ z.repo }}:{{ z.path }}</a>
-            <div v-for="line in z.lines">
+      <div ref="container" class="stackview-list-container">
+         <div class="stackview-item" v-for="z in groups" :key="z.key">
+            <FileIcon :name="z.uri"/>
+            <a class="stackview-item-link" @click="loadFileInEditor(z.uri)">{{ z.repo }}:{{ z.path }}</a>
+            <div class="stackview-item-lno-container" v-for="line in z.lines">
                <a class="stackview-item-lno" @click="loadFileInEditor(z.uri, line.lno)">{{ line.lno }}</a>&nbsp;
                {{ line.text }}
             </div>
@@ -84,7 +88,14 @@ async function loadFileInEditor(uri, lno) {
    overflow-y: auto;
 }
 .stackview-item {
+   border-bottom: 1px solid gray;
+}
+.stackview-item-link {
    cursor: pointer;
+   word-break: break-all;
+}
+.stackview-item-lno-container {
+   word-break: break-all;
 }
 .stackview-item-lno {
    user-select: none;

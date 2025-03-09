@@ -5,7 +5,7 @@ import NavbarSearch from './components/NavbarSearch.vue';
 import Loading from './components/Loading.vue';
 import eventbus from './services/eventbus';
 import EditorBreadcrumb from './components/EditorBreadcrumb.vue';
-import NavbarViewStack from './components/NavbarViewStack.vue';
+import NavbarStackView from './components/NavbarStackView.vue';
 
 const monacoEditor = ref(null);
 const tab = ref(0);
@@ -52,7 +52,7 @@ function switchTab(index) {
       <div class="main-view">
         <div :class="{'tab-container': true, hide: tab == 0}">
           <div :class="{hide: tab != 1}"><NavbarSearch /></div>
-          <div :class="{hide: tab != 2}"><NavbarViewStack /></div>
+          <div :class="{hide: tab != 2}"><NavbarStackView /></div>
           <div :class="{hide: tab != 3}">CallGrid</div>
           <div :class="{hide: tab != 4}">LogMap</div>
         </div>
