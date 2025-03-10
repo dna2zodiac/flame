@@ -15,7 +15,6 @@ onUnmounted(() => {
    eventbus.off('stackview.update', onStackViewUpdate);
 });
 function onStackViewUpdate() {
-   console.log(local.breakpoints);
    const btmap = local.breakpoints?.byFile || {};
    const list = [];
    Object.keys(btmap).forEach(uri => {

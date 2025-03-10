@@ -95,5 +95,6 @@ function removeSelf() {
    flex: 1 0 auto;
    word-break: break-all;
    padding: 0 5px;
+   width: 0;
 }
 </style>
